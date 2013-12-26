@@ -3,7 +3,7 @@ from mpi4py import MPI
 import numpy as np
 from numpy import *
 from datetime import datetime
-genxpath = '/u1/uaf/cqiu/mpi_genx/genx_mpi_qiu/'
+genxpath = '/u1/uaf/cqiu/genx_mpi_qiu/'
 import sys
 import time
 sys.path.insert(0,genxpath)
