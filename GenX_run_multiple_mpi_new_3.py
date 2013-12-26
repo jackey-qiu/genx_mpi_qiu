@@ -71,7 +71,7 @@ iter_list = [1]
 #   'logbars'
 #   'sintth4'
 # e.g.: fom_list = ['log','R1']  # performs all repetitions for 'log' and 'R1'
-fom_list = ['chi2bars']
+fom_list = ['R1','R2','diff']
 
 # diffev control parameters
 # needs to be a list of parameters combinations to use. 
