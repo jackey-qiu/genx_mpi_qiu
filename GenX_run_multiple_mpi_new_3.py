@@ -3,7 +3,7 @@ from mpi4py import MPI
 import numpy as np
 from numpy import *
 from datetime import datetime
-genxpath = '/u1/uaf/cqiu/mpi_genx/genx_test/'
+genxpath = '/u1/uaf/cqiu/mpi_genx/genx_mpi_qiu/'
 import sys
 import time
 sys.path.insert(0,genxpath)
@@ -57,7 +57,7 @@ t_start_0=datetime.now()
 #iter_list = range(5)
 
 #print "the run starts @ %s"%(str(datetime.now()))
-iter_list = [2]
+iter_list = [1]
 #####################
 # figure of merit (FOM) to use
 # needs to be a list of strings, valid names are:
@@ -71,7 +71,7 @@ iter_list = [2]
 #   'logbars'
 #   'sintth4'
 # e.g.: fom_list = ['log','R1']  # performs all repetitions for 'log' and 'R1'
-fom_list = ['chibars']
+fom_list = ['chi2bars']
 
 # diffev control parameters
 # needs to be a list of parameters combinations to use. 
