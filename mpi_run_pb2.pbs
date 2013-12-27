@@ -8,6 +8,6 @@
 module load python/2.7.4
 source $HOME/python/bin/activate
 cd $CENTER/temp_gx_files
-for gx in *_tweak.gx;do
+for gx in *_bv.gx;do
 	mpirun --mca mpi_warn_on_fork 0 -np 300  python $HOME/genx_mpi_qiu/GenX_run_multiple_mpi_new_3.py $gx 2>&1 |tee job.$PBS_JOBID.out
 done
