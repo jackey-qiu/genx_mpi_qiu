@@ -89,7 +89,7 @@ create_trial = ['best_1_bin']#'best_1_bin','rand_1_bin',#'best_either_or','rand_
 # Population size
 use_pop_mult = False             # absolute (F) or relative (T) population size
 pop_mult = 8 			 # if use_pop_mult = True, populatio multiplier
-pop_size = 300               # if use_pop_mult = False, population size
+pop_size = 320               # if use_pop_mult = False, population size
 
 # Generations
 use_max_generations = True       # absolute (T) or relative (F) maximum gen.
