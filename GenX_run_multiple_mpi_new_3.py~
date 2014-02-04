@@ -7,7 +7,6 @@ genxpath = '/u1/uaf/cqiu/genx_mpi_qiu/genx_test'
 import sys
 import time
 sys.path.insert(0,genxpath)
-sys.path.append(genxpath+'/geometry_modules')
 import model, diffev,  time, fom_funcs
 import filehandling as io
 ##new in version 2##
@@ -90,11 +89,11 @@ create_trial = ['best_1_bin']#'best_1_bin','rand_1_bin',#'best_either_or','rand_
 # Population size
 use_pop_mult = False             # absolute (F) or relative (T) population size
 pop_mult = 8 			 # if use_pop_mult = True, populatio multiplier
-pop_size = 600               # if use_pop_mult = False, population size
+pop_size = 320               # if use_pop_mult = False, population size
 
 # Generations
 use_max_generations = True       # absolute (T) or relative (F) maximum gen.
-max_generations = 10000      # if use_max_generations = True
+max_generations = 5000      # if use_max_generations = True
 max_generation_mult = 6          # if use_max_generations = False
 
 # Parallel processing

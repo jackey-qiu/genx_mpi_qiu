@@ -29,6 +29,9 @@ _path, _file = os.path.split(__file__)
 if _path[-4:] == '.zip':
     _path, ending = os.path.split(_path)
 print _path
+#make geometry folder in the system path
+sys.path.append('//'.join(_path.rsplit('\\')+['geometry_modules']))
+print '/'.join(_path.rsplit('\\')+['geometry_modules']))
 if _path != '':
     _path += '/'
 #raise Exception(_path)
