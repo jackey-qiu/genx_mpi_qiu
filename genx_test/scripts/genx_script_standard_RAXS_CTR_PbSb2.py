@@ -55,7 +55,7 @@ ALPHA=[[0],[3]]
 DOMAIN=[1,1]
 DOMAIN_GP=[[0,1]]#means you want to group first two and last two domains together, only group half layers or full layers together
 DOMAIN_NUMBER=len(DOMAIN)
-COHERENCE=[True,True] #want to add up in coherence?
+COHERENCE=[True,True] #want to add up in coherence? items inside list corresponding to each domain
 
 ##cal bond valence switch##
 USE_BV=True
