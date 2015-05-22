@@ -39,13 +39,14 @@ O1,O2=[0.653,1.1121,1.903]*basis,[0.847,0.6121,1.903]*basis
 
 class trigonal_pyramid_distortion():
     
-    def __init__(self,p0=[0.,0.,0.],p1=[2.,2.,2.],top_angle=1.0,len_offset=[0.,0.]):
+    def __init__(self,p0=[0.,0.,0.],p1=[2.,2.,2.],ref=None,top_angle=1.0,len_offset=[0.,0.]):
         #top angle is p0_A_p1 in ppt file, shoulder_angle is A_P0_CP
         #len_offset[0] is CP_P1 in ppt, the other one not specified in the file
         self.top_angle=top_angle
         self.shoulder_angle=(np.pi-top_angle)/2.
         self.p0,self.p1=np.array(p0),np.array(p1)
         self.len_offset=len_offset
+        self.ref=ref
     
     def cal_theta(self):
     #here theta angle is angle A_P0_P1 in ppt file
@@ -78,6 +79,8 @@ class trigonal_pyramid_distortion():
         ref_p=0
         if c==0:
             ref_p=p1+[0,0,1]
+        elif self.ref!=None:
+            ref_p=np.cross(p0-p1,np.cross(p0-p1,self.ref-p1))+p1
         else:
             ref_p=np.array([1.,1.,(a*(x0-1.)+b*(y0-1.))/c+z0])
         #elif b!=0.:
@@ -101,6 +104,7 @@ class trigonal_pyramid_distortion():
         #basic idea:set z vector rooting from EC to cp, x vector from EC to A (normalized to length of 1)
         #use angle of theta (pi/2 here) and phi (the angle A_EC_P2, can be calculated) to sove P2 finally 
         #if consider mirror then p2 will be on the other side
+        
         side_center=(p0+self.cross_pt)/2.
         origin=side_center
         z_v=f3(np.zeros(3),(self.cross_pt-side_center))
@@ -116,7 +120,8 @@ class trigonal_pyramid_distortion():
         p2_new=np.array([r*np.cos(phi)*np.sin(theta),r*np.sin(phi)*np.sin(theta),r*np.cos(theta)])
         _p2=np.dot(inv(T),p2_new)+origin
         _p2_v=_p2-self.apex
-        scale=(f2(_p2,self.apex)+self.len_offset[1])/f2(_p2,self.apex)
+        #the ref len is the shorter length between apex and two known points
+        scale=(min([f2(self.p0,self.apex),f2(self.p1,self.apex)])+self.len_offset[1])/f2(_p2,self.apex)
         p2_v=_p2_v*scale
         self.p2=p2_v+self.apex
         r_new=f2(self.apex,self.p2)
@@ -135,6 +140,27 @@ class trigonal_pyramid_distortion():
         p2_new2=np.array([r_new*np.cos(phi)*np.sin(theta),r_new*np.sin(phi)*np.sin(theta),r_new*np.cos(theta)])
         p2=np.dot(inv(T_new),p2_new2)+origin_new
         self.p2=p2
+        
+        '''
+        side_center=(p0+self.cross_pt)/2.
+        origin=side_center
+        z_v=f3(np.zeros(3),(self.cross_pt-side_center))
+        x_v=f3(np.zeros(3),(self.apex-side_center))
+        y_v=np.cross(z_v,x_v)
+        T=f1(x0_v,y0_v,z0_v,x_v,y_v,z_v)
+        theta=np.pi/2
+        dst_face_ct_edge_ct=f2(p0,self.cross_pt)/2*np.tan(np.pi/6.)
+        dst_p2_edge_ct=f2(p0,self.cross_pt)/2*np.tan(np.pi/3.)
+        phi=np.arccos(dst_face_ct_edge_ct/f2(self.apex,(p0+self.cross_pt)/2.))+angle_offset
+        if mirror:phi=-phi
+        r=dst_p2_edge_ct
+        p2_new=np.array([r*np.cos(phi)*np.sin(theta),r*np.sin(phi)*np.sin(theta),r*np.cos(theta)])
+        _p2=np.dot(inv(T),p2_new)+origin
+        _p2_v=_p2-self.apex
+        scale=(f2(_p2,self.apex)+self.len_offset[1])/f2(_p2,self.apex)
+        p2_v=_p2_v*scale
+        self.p2=p2_v+self.apex
+        '''
     def all_in_all(self,switch=False,phi=0.,mirror=False,angle_offset=0):
         self.cal_theta()
         self.cal_edge_len()

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import models.sxrd_new1 as model
 #to make compatible to historical runs
-import models.sxrd_test5_sym_new_test_new66_2_3 as model2
+#import models.sxrd_test5_sym_new_test_new66_2_3 as model2
 from models.utils import UserVars
 import numpy as np
 from operator import mul
@@ -184,6 +184,29 @@ class domain_creator_surface():
                     index=np.where(domain[j][k].id==first_atom_id[j][k])[0][0]+i*2
                     temp_atm_gp.add_atom(domain[j][k],str(domain[j][k].id[index]))
                     temp_atm_gp.add_atom(domain[j][k],str(domain[j][k].id[index+1]))
+            atm_gp_list.append(temp_atm_gp)
+
+        return atm_gp_list
+            
+    def grouping_sequence_layer_new2(self, domain=[], first_atom_id=[],layers_N=1):
+        #looping the domain eg. domain=[[domain1A,domain1B],[domain2A,domain2B]]
+        #group the atoms at the same layer in one domain and the associated atoms in its chemically equivalent domain
+        #domain is list of domains
+        #first_atom_id is list of first id in id array of two domains eg [['id1','id2]],['id11','id21']]
+        #dont consdier symmetry relationship(so for oc and u)
+        #layers_N is the number of layer you consider for grouping operation
+
+        atm_gp_list=[]
+        for i in range(layers_N):
+            temp_atm_gp=model.AtomGroup()
+            for j in range(len(domain)):
+                for k in range(len(domain[j])):
+                    matrix=[[1,0,0,0,1,0,0,0,1],[-1,0,0,0,1,0,0,0,1]]
+                    if k==1:#note the k can be either 0 for domainA or 1 for domainB
+                        matrix=[[-1,0,0,0,1,0,0,0,1],[1,0,0,0,1,0,0,0,1]]
+                    index=np.where(domain[j][k].id==first_atom_id[j][k])[0][0]+i*2
+                    temp_atm_gp.add_atom(domain[j][k],str(domain[j][k].id[index]),matrix[0])
+                    temp_atm_gp.add_atom(domain[j][k],str(domain[j][k].id[index+1]),matrix[1])
             atm_gp_list.append(temp_atm_gp)
 
         return atm_gp_list

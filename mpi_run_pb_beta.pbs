@@ -1,0 +1,18 @@
+#!/bin/bash
+#PBS -W group_list=uafaqua
+#PBS -q standard_12
+#PBS -l walltime=5:00:00
+#PBS -l nodes=5:ppn=12
+#PBS -j oe
+/etc/profile.d/modules.sh
+module load python/2.7.4
+source $HOME/python/bin/activate
+cd $CENTER/temp_gx_files
+for i in 1 2 3 4 5 6 7 8 9 10
+do
+    for gx in *_Oct_10B.gx;do
+	mpirun --mca mpi_warn_on_fork 0 -np 60  python $HOME/genx_mpi_qiu/GenX_run_multiple_mpi_new_3_beta.py $gx 180 2>&1 |tee job.$PBS_JOBID.out
+    done
+done
+cd $HOME/genx_mpi_qiu
+rm -f *.o*

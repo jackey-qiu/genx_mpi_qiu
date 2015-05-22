@@ -45,6 +45,11 @@ f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
 #direction of the basis is pointing from p1 to p2
 f3=lambda p1,p2:(1./f2(p1,p2))*(p2-p1)+p1
 
+#rotation matrix for rotation successfully about x axis for alpha, y axis for beta and z axis for gamma
+f4=lambda alpha,beta,gamma:np.array([[np.cos(beta)*np.cos(gamma),np.cos(gamma)*np.sin(alpha)*np.sin(beta)-np.cos(alpha)*np.sin(gamma),np.cos(alpha)*np.cos(gamma)*np.sin(beta)+np.sin(alpha)*np.sin(gamma)],\
+                                     [np.cos(beta)*np.sin(gamma),np.cos(alpha)*np.cos(gamma)+np.sin(beta)*np.sin(alpha)*np.sin(gamma),-np.cos(gamma)*np.sin(alpha)+np.sin(beta)*np.cos(alpha)*np.sin(gamma)],\
+                                     [-np.sin(beta),np.cos(beta)*np.sin(alpha),np.cos(alpha)*np.cos(beta)]])
+
 #extract xyz for atom with id in domain
 def extract_coor(domain,id):
     index=np.where(domain.id==id)[0][0]
@@ -85,6 +90,26 @@ grid_match_lib[7]={2:'-y',3:'-x-y',4:'-x',5:None,6:None,1:'-y',8:None,9:'-x'}
 grid_match_lib[8]={2:'-y',3:'-y',4:None,5:None,6:None,7:None,1:'-y',9:None}
 grid_match_lib[9]={2:'-y',3:'-y',4:None,5:None,6:'+x',7:'+x',8:None,1:'+x-y'}
 
+def rotate_along_one_axis(domain=None,pass_point_id='',rotation_ids=[],rotation_vector=[],rotation_angle=None,basis=np.array([5.038,5.434,7.3707])):
+    #note it works only when the dxdydz==0, if not rewrite the assignment part at line106
+    pt_ct=lambda domain,p_O1_index:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])*basis
+    u,v,w=rotation_vector[0],rotation_vector[1],rotation_vector[2]
+    pass_point_index=np.where(domain.id==pass_point_id)
+    rotation_index=[np.where(domain.id==rotation_id) for rotation_id in rotation_ids]
+    pass_point_coor=pt_ct(domain,pass_point_index)
+    a,b,c=pass_point_coor[0],pass_point_coor[1],pass_point_coor[2]
+    rotation_coors=[pt_ct(domain,index) for index in rotation_index]
+    def _rotation(x,y,z,a,b,c,u,v,w,theta):
+        L=u**2+v**2+w**2
+        x_value=((a*(v**2+w**2)-u*(b*v+c*w-u*x-v*y-w*z))*(1-np.cos(theta))+L*x*np.cos(theta)+L**0.5*(-c*v+b*w-w*y+v*z)*np.sin(theta))/L
+        y_value=((b*(u**2+w**2)-v*(a*u+c*w-u*x-v*y-w*z))*(1-np.cos(theta))+L*y*np.cos(theta)+L**0.5*(c*u-a*w+w*x-u*z)*np.sin(theta))/L
+        z_value=((c*(u**2+v**2)-w*(a*u+b*v-u*x-v*y-w*z))*(1-np.cos(theta))+L*z*np.cos(theta)+L**0.5*(-b*u+a*v-v*x+u*y)*np.sin(theta))/L
+        return [x_value,y_value,z_value]
+    for i in range(len(rotation_coors)):
+        index=rotation_index[i]
+        x,y,z=rotation_coors[index][0],rotation_coors[index][1],rotation_coors[index][2]
+        domain.x[index],domain.y[index],domain.z[index]=_rotation(x,y,z,a,b,c,u,v,w,rotation_angle)/basis
+        
 class domain_creator_sorbate():
     def __init__(self,ref_domain,id_list,terminated_layer=0,domain_tag='_D1',new_var_module=None):
         #id_list is a list of id in the order of ref_domain,terminated_layer is the index number of layer to be considered
@@ -153,6 +178,77 @@ class domain_creator_sorbate():
         new_domain_A.id=map(lambda x:x+self.domain_tag+'A',new_domain_A.id)
         new_domain_B.id=map(lambda x:x+self.domain_tag+'B',new_domain_B.id)
         return new_domain_A.copy(),new_domain_B.copy()
+        
+    def adding_distal_ligand(self,domain=None,id=None,ref=[],r=2,theta=0,phi=0,basis=np.array([5.038,5.434,7.3707])):
+        theta,phi=theta/180*np.pi,phi/180*np.pi
+        xyz_new=[r*np.cos(phi)*np.sin(theta),r*np.sin(phi)*np.sin(theta),r*np.cos(theta)]/basis
+        xyz_original=xyz_new+ref
+        sorbate_index=None
+        try:
+            sorbate_index=np.where(domain.id==id)[0][0]
+        except:
+            domain.add_atom( id, "O",  xyz_original[0] ,xyz_original[1], xyz_original[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+        if sorbate_index!=None:
+            domain.x[sorbate_index]=xyz_original[0]
+            domain.y[sorbate_index]=xyz_original[1]
+            domain.z[sorbate_index]=xyz_original[2]
+        return xyz_original
+        
+    def adding_hydrogen(self,domain=None,N_of_HB=0,ref_id='',r=1,theta=0,phi=0,basis=np.array([5.038,5.434,7.3707])):
+        theta=theta/180*np.pi
+        phi=phi/180*np.pi
+        id='HB'+str(N_of_HB+1)+'_'+ref_id
+        pt_ct=lambda domain,p_O1_index:np.array([domain.x[p_O1_index]+domain.dx1[p_O1_index]+domain.dx2[p_O1_index]+domain.dx3[p_O1_index],domain.y[p_O1_index]+domain.dy1[p_O1_index]+domain.dy2[p_O1_index]+domain.dy3[p_O1_index],domain.z[p_O1_index]+domain.dz1[p_O1_index]+domain.dz2[p_O1_index]+domain.dz3[p_O1_index]])
+        xyz_new=[r*np.cos(phi)*np.sin(theta),r*np.sin(phi)*np.sin(theta),r*np.cos(theta)]/basis
+        ref_index=np.where(domain.id==ref_id)[0][0]
+        ref=pt_ct(domain,ref_index)
+        xyz_original=xyz_new+ref
+        sorbate_index=None
+        try:
+            sorbate_index=np.where(domain.id==id)[0][0]
+        except:
+            domain.add_atom( id, "H",  xyz_original[0] ,xyz_original[1], xyz_original[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+        if sorbate_index!=None:
+            domain.x[sorbate_index]=xyz_original[0]
+            domain.y[sorbate_index]=xyz_original[1]
+            domain.z[sorbate_index]=xyz_original[2]
+        return xyz_original
+    
+    def adding_distal_ligand_on_biset_plane(self,domain=None,sorbate_id='',HO_id='',attach_atm_ids=[],attach_atm_offsets=[],r=2,phi=0):
+        p_O1_index=np.where(domain.id==attach_atm_ids[0])
+        p_O2_index=np.where(domain.id==attach_atm_ids[1])
+        p_sorbate_index=np.where(domain.id==sorbate_id)
+        p_HO_index=np.where(domain.id==HO_id)
+        basis=np.array([5.038,5.434,7.3707])
+        
+        def _translate_offset_symbols(symbol):
+            if symbol=='-x':return np.array([-1.,0.,0.])
+            elif symbol=='+x':return np.array([1.,0.,0.])
+            elif symbol=='-y':return np.array([0.,-1.,0.])
+            elif symbol=='+y':return np.array([0.,1.,0.])
+            elif symbol==None:return np.array([0.,0.,0.])
+
+        pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
+
+        p_O1_coor=pt_ct(domain,p_O1_index,attach_atm_offsets[0])*basis
+        p_O2_coor=pt_ct(domain,p_O2_index,attach_atm_offsets[1])*basis
+        p_sorbate_coor=pt_ct(domain,p_sorbate_index,None)*basis
+        unit_vector_S_O1=f3(np.zeros(3),p_O1_coor-p_sorbate_coor)
+        unit_vector_S_O2=f3(np.zeros(3),p_O2_coor-p_sorbate_coor)
+        y_v_new=f3(np.zeros(3),np.cross(unit_vector_S_O1,unit_vector_S_O2))
+        x_v_new=f3(np.zeros(3),unit_vector_S_O1+unit_vector_S_O2)
+        z_v_new=np.cross(x_v_new,y_v_new)
+        T=f1(x0_v,y0_v,z0_v,x_v_new,y_v_new,z_v_new)
+        
+        xyz_new=[r*np.cos(phi)*np.sin(np.pi/2),r*np.sin(phi)*np.sin(np.pi/2),r*np.cos(np.pi/2)]
+        #print f2(np.dot(inv(T),xyz_new)+p_sorbate_coor,p_sorbate_coor)
+        xyz_org=(np.dot(inv(T),xyz_new)+p_sorbate_coor)/basis
+
+        domain.x[p_HO_index]=xyz_org[0]
+        domain.y[p_HO_index]=xyz_org[1]
+        domain.z[p_HO_index]=xyz_org[2]
+        
+        return xyz_org      
         
     def adding_pb_share_triple(self,domain,attach_atm_ids=['id1','id2','id3'],offset=[None,None,None],pb_id='pb_id'):
         #the pb will be placed in a plane determined by three points,and lead position is equally distant from the three points
@@ -288,7 +384,7 @@ class domain_creator_sorbate():
         #return anstrom
         return sorbate_v
      
-    def adding_pb_share_triple4(self,domain,top_angle=1.,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],pb_id='pb_id'):
+    def adding_pb_share_triple4(self,domain,top_angle=1.,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],pb_id='pb_id',sorbate_el='Pb'):
         #here only consider the angle distortion specified by top_angle (range from 0 to 120 dg), and no length distortion, so the base is a equilayer triangle
         #and here consider the tridentate complexation configuration 
         #two steps:
@@ -298,6 +394,7 @@ class domain_creator_sorbate():
         #then based on these three points and top angle, calculate the apex coords
         #step two: (has been commented out for this step)
         #update the coord of the third oxygen to the new third coords (be carefule about the offset, you must consider the coor within the unitcell)
+        top_angle=float(top_angle)/180*np.pi
         p_O1_index=np.where(domain.id==attach_atm_ids_ref[0])
         p_O2_index=np.where(domain.id==attach_atm_ids_ref[1])
         p_O3_index=np.where(domain.id==attach_atm_id_third[0])
@@ -329,7 +426,7 @@ class domain_creator_sorbate():
             ptOnCircle_cent_vt=cent_proj_vt/l*r
             ptOnCircle=ptOnCircle_cent_vt+cent_pt
             return ptOnCircle
- 
+
         p_O1=pt_ct(domain,p_O1_index,offset[0])*basis
         p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
         p_O3_old=pt_ct(domain,p_O3_index,offset[2])*basis
@@ -349,12 +446,13 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=pb_id,el='Pb',sorbate_v=pyramid_distortion.apex/basis)
+        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=pyramid_distortion.apex/basis)
         #dif_value=(p_O3-p_O3_old)/basis
         #domain.dx1[p_O3_index],domain.dy1[p_O3_index],domain.dz1[p_O3_index]=dif_value[0],dif_value[1],dif_value[2]
         #_add_sorbate(domain=domain,id_sorbate=attach_atm_id_third[0],el='O',sorbate_v=(p_O3-_translate_offset_symbols(offset[2]))/basis)
-        return pyramid_distortion.apex/basis
-    def adding_share_triple_octahedra(self,domain,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],sorbate_id='Sb_id',sorbate_oxygen_ids=['HO1','HO2','HO3']):
+        return [pyramid_distortion.apex/basis]
+        
+    def adding_share_triple_octahedra(self,domain,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],sorbate_id='Sb_id',sorbate_el='Sb',sorbate_oxygen_ids=['HO1','HO2','HO3'],dr=[0,0,0]):
         #here only consider the configuration of regular octahedra
         #and here consider the tridentate complexation configuration 
         #two steps:
@@ -364,6 +462,7 @@ class domain_creator_sorbate():
         #then based on these three points and top angle, calculate the apex coords
         #step two: 
         #put on the sorbates (center_point +3 oxygens)
+        #note dr here is the length (in A) of distal oxygens elongate along the bond vector
         p_O1_index=np.where(domain.id==attach_atm_ids_ref[0])
         p_O2_index=np.where(domain.id==attach_atm_ids_ref[1])
         p_O3_index=np.where(domain.id==attach_atm_id_third[0])
@@ -378,6 +477,7 @@ class domain_creator_sorbate():
 
         f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
         pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
+        dxdydz=lambda domain,p_O1_index:np.array([domain.dx1[p_O1_index]+domain.dx2[p_O1_index]+domain.dx3[p_O1_index],domain.dy1[p_O1_index]+domain.dy2[p_O1_index]+domain.dy3[p_O1_index],domain.dz1[p_O1_index]+domain.dz2[p_O1_index]+domain.dz3[p_O1_index]])
 
                        
         def _cal_coor_o3(p0,p1,p3):
@@ -401,10 +501,8 @@ class domain_creator_sorbate():
         p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
         p_O3_old=pt_ct(domain,p_O3_index,offset[2])*basis
         p_O3=_cal_coor_o3(p_O1,p_O2,p_O3_old)
-        #print p_O1,p_O2,p_O3
         octahedra_case=octahedra.share_face(np.array([p_O1,p_O2,p_O3]))
-        octahedra_case.share_face_init(flag='regular_triangle')
-        #print octahedra_case.center_point
+        octahedra_case.share_face_init(flag='regular_triangle',dr=dr)
         def _add_sorbate(domain=None,id_sorbate=None,el='Sb',sorbate_v=[]):
             sorbate_index=None
             try:
@@ -416,15 +514,89 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el='Sb',sorbate_v=octahedra_case.center_point/basis)
-        try:
-            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[0],el='O',sorbate_v=octahedra_case.p3/basis)
-            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[1],el='O',sorbate_v=octahedra_case.p4/basis)
-            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[2],el='O',sorbate_v=octahedra_case.p5/basis)
-        except:
-            pass
-        return [octahedra_case.center_point/basis,octahedra_case.p3/basis,octahedra_case.p4/basis,octahedra_case.p5/basis]
+        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=octahedra_case.center_point/basis)
+
+        if sorbate_oxygen_ids!=[]:
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[0],el='O',sorbate_v=octahedra_case.p3/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[1],el='O',sorbate_v=octahedra_case.p4/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[2],el='O',sorbate_v=octahedra_case.p5/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
+            return [octahedra_case.center_point/basis,octahedra_case.p3/basis,octahedra_case.p4/basis,octahedra_case.p5/basis]
+        else:
+            return [octahedra_case.center_point/basis]
+         
+    def adding_sorbate_tridentate_tetrahedral(self,domain,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],sorbate_id='Sb_id',sorbate_el='Sb',sorbate_oxygen_ids=['HO1'],edge_offset=0,top_angle_offset=0):
+        #here only consider the configuration of regular octahedra
+        #and here consider the tridentate complexation configuration 
+        #two steps:
+        #step one: use the coors of the two reference atoms, and the third one to calculate a new third one such that this new point and 
+        #the two ref pionts form a equilayer triangle, and the distance from third O to the new third one is shortest
+        #see function of _cal_coor_o3 for detail
+        #then based on these three points and top angle, calculate the apex coords
+        #step two: 
+        #put on the sorbates (center_point +3 oxygens)
+        #note dr here is the length (in A) of distal oxygens elongate along the bond vector
+        p_O1_index=np.where(domain.id==attach_atm_ids_ref[0])
+        p_O2_index=np.where(domain.id==attach_atm_ids_ref[1])
+        p_O3_index=np.where(domain.id==attach_atm_id_third[0])
+        basis=np.array([5.038,5.434,7.3707])
         
+        def _translate_offset_symbols(symbol):
+            if symbol=='-x':return np.array([-1.,0.,0.])
+            elif symbol=='+x':return np.array([1.,0.,0.])
+            elif symbol=='-y':return np.array([0.,-1.,0.])
+            elif symbol=='+y':return np.array([0.,1.,0.])
+            elif symbol==None:return np.array([0.,0.,0.])
+
+        f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
+        pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
+        dxdydz=lambda domain,p_O1_index:np.array([domain.dx1[p_O1_index]+domain.dx2[p_O1_index]+domain.dx3[p_O1_index],domain.dy1[p_O1_index]+domain.dy2[p_O1_index]+domain.dy3[p_O1_index],domain.dz1[p_O1_index]+domain.dz2[p_O1_index]+domain.dz3[p_O1_index]])
+
+                       
+        def _cal_coor_o3(p0,p1,p3):
+            #function to calculate the new point for p3, see document file #2 for detail procedures
+            r=f2(p0,p1)/2.*np.tan(np.pi/3)
+            norm_vt=p0-p1
+            cent_pt=(p0+p1)/2
+            a,b,c=norm_vt[0],norm_vt[1],norm_vt[2]
+            d=-a*cent_pt[0]-b*cent_pt[1]-c*cent_pt[2]
+            u,v,w=p3[0],p3[1],p3[2]
+            k=(a*u+b*v+c*w+d)/(a**2+b**2+c**2)
+            #projection of O3 to the normal plane see http://www.9math.com/book/projection-point-plane for detail algorithm
+            O3_proj=np.array([u-a*k,v-b*k,w-c*k])
+            cent_proj_vt=O3_proj-cent_pt
+            l=f2(O3_proj,cent_pt)
+            ptOnCircle_cent_vt=cent_proj_vt/l*r
+            ptOnCircle=ptOnCircle_cent_vt+cent_pt
+            return ptOnCircle
+ 
+        p_O1=pt_ct(domain,p_O1_index,offset[0])*basis
+        p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
+        p_O3_old=pt_ct(domain,p_O3_index,offset[2])*basis
+        p_O3=_cal_coor_o3(p_O1,p_O2,p_O3_old)
+        tetrahedral_case=tetrahedra.share_face(np.array([p_O1,p_O2,p_O3]))
+        tetrahedral_case.share_face_init()
+        tetrahedral_case.apply_edge_offset(edge_offset)
+        tetrahedral_case.apply_top_angle_offset(top_angle_offset)
+        
+        def _add_sorbate(domain=None,id_sorbate=None,el='Sb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+                
+        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=tetrahedral_case.center_point/basis)
+
+        if sorbate_oxygen_ids!=[]:
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[0],el='O',sorbate_v=tetrahedral_case.p3/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
+            return [tetrahedral_case.center_point/basis,tetrahedral_case.p3/basis]
+        else:
+            return [tetrahedral_case.center_point/basis]
+            
     def adding_share_triple_trigonal_bipyramid(self,domain,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],sorbate_id='Pb_id',sorbate_oxygen_ids=['HO1']):
         #here only consider the configuration of regular hexahedra
         #and here consider the tridentate complexation configuration 
@@ -566,7 +738,7 @@ class domain_creator_sorbate():
             _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=pyramid_distortion.p2/basis)
         return [pyramid_distortion.apex/basis,pyramid_distortion.p2/basis]
 
-    def adding_sorbate_pyramid_distortion_B(self,domain,top_angle=1.,phi=0.,edge_offset=[0,0],attach_atm_ids=['id1','id2'],offset=[None,None],anchor_ref=None,anchor_offset=None,pb_id='pb_id',O_id=['id1'],mirror=False,switch=False):
+    def adding_sorbate_pyramid_distortion_B(self,domain,top_angle=1.,phi=0.,edge_offset=[0,0],attach_atm_ids=['id1','id2'],offset=[None,None],anchor_ref=None,anchor_offset=None,pb_id='pb_id',sorbate_el='Pb',O_id=['id1'],mirror=False,switch=False):
         #The added sorbates (including Pb and one Os) will form a edge-distorted trigonal pyramid configuration with the attached ones
         p_O1_index=np.where(domain.id==attach_atm_ids[0])
         p_O2_index=np.where(domain.id==attach_atm_ids[1])
@@ -574,7 +746,8 @@ class domain_creator_sorbate():
         if anchor_ref!=None:
             anchor_index=np.where(domain.id==anchor_ref)
         basis=np.array([5.038,5.434,7.3707])
-        
+        top_angle=top_angle/180*np.pi
+        phi=phi/180*np.pi
         def _translate_offset_symbols(symbol):
             if symbol=='-x':return np.array([-1.,0.,0.])
             elif symbol=='+x':return np.array([1.,0.,0.])
@@ -606,15 +779,20 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=pb_id,el='Pb',sorbate_v=pyramid_distortion.apex/basis)
+        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=pyramid_distortion.apex/basis)
         if O_id!=[]:
             _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=pyramid_distortion.p2/basis)
-        return [pyramid_distortion.apex/basis,pyramid_distortion.p2/basis]
+            return [pyramid_distortion.apex/basis,pyramid_distortion.p2/basis]
+        else:
+            return [pyramid_distortion.apex/basis]
    
-    def adding_sorbate_pyramid_distortion_B2(self,domain,top_angle=1.,phi=0.,edge_offset=[0,0],attach_atm_ids=['id1','id2'],offset=[None,None],pb_id='pb_id',O_id=['id1'],mirror=False,switch=False,angle_offset=0):
+    def adding_sorbate_pyramid_distortion_B2(self,domain,top_angle=1.,phi=0.,edge_offset=[0,0],attach_atm_ids=['id1','id2'],offset=[None,None],anchor_ref=None,anchor_offset=None,pb_id='pb_id',sorbate_el='Pb',O_id=['id1'],mirror=False,switch=False,angle_offset=0):
         #The added sorbates (including Pb and one Os) will form a edge-distorted trigonal pyramid configuration with the attached ones
         p_O1_index=np.where(domain.id==attach_atm_ids[0])
         p_O2_index=np.where(domain.id==attach_atm_ids[1])
+        anchor_index=None
+        if anchor_ref!=None:
+            anchor_index=np.where(domain.id==anchor_ref)
         basis=np.array([5.038,5.434,7.3707])
         
         def _translate_offset_symbols(symbol):
@@ -628,10 +806,13 @@ class domain_creator_sorbate():
         pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
         p_O1=pt_ct(domain,p_O1_index,offset[0])*basis
         p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
+        anchor=None
+        if anchor_index!=None:
+            anchor=pt_ct(domain,anchor_index,anchor_offset)*basis
         #print "O1",p_O1
         #print "O2",p_O2
-        pyramid_distortion=trigonal_pyramid_distortion_B2.trigonal_pyramid_distortion(p0=p_O1,p1=p_O2,top_angle=top_angle,len_offset=edge_offset)
-        pyramid_distortion.all_in_all(switch=switch,phi=phi,mirror=mirror,angle_offset=angle_offset)
+        pyramid_distortion=trigonal_pyramid_distortion_B2.trigonal_pyramid_distortion(p0=p_O1,p1=p_O2,ref=anchor,top_angle=top_angle/180.*np.pi,len_offset=edge_offset)
+        pyramid_distortion.all_in_all(switch=switch,phi=phi/180*np.pi,mirror=mirror,angle_offset=angle_offset/180.*np.pi)
         #print "apex",pyramid_distortion.apex-[0,0.75587,7.3707]
         #print "p2",pyramid_distortion.p2-[0,0.75587,7.3707]
         def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
@@ -645,7 +826,7 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=pb_id,el='Pb',sorbate_v=pyramid_distortion.apex/basis)
+        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=pyramid_distortion.apex/basis)
         if O_id!=[]:
             _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=pyramid_distortion.p2/basis)
         return [pyramid_distortion.apex/basis,pyramid_distortion.p2/basis]
@@ -691,13 +872,17 @@ class domain_creator_sorbate():
         else:
             _add_sorbate(domain=domain,id_sorbate=O_id[1],el='O',sorbate_v=trigonal_bipyramid.p3/basis)
             return [trigonal_bipyramid.center_point/basis,trigonal_bipyramid.p4/basis,trigonal_bipyramid.p3/basis]
-        
-    def adding_sorbate_bidentate_octahedral(self,domain,theta=0,phi=np.pi/2,flag='off_center',attach_atm_ids=[],offset=[None,None],sb_id='sb1',O_id=['HO1','HO2','HO3','HO4']):
-        #The added sorbates (including Pb and one Os) will form a edge-distorted trigonal pyramid configuration with the attached ones
+    
+    def adding_sorbate_bidentate_tetrahedral(self,domain,phi=0,distal_length_offset=[0,0],distal_angle_offset=[0,0],top_angle_offset=0,attach_atm_ids=[],offset=[None,None],sorbate_id='As1',sorbate_el='As',O_id=['HO1','HO2'],anchor_ref=None,anchor_offset=None,edge_offset=0):
+        #The added sorbates (including Pb and one Os) will form tetrahedra configuration with the attached ones
         p_O1_index=np.where(domain.id==attach_atm_ids[0])
         p_O2_index=np.where(domain.id==attach_atm_ids[1])
         basis=np.array([5.038,5.434,7.3707])
-        
+        anchor_index=None
+        phi=phi/180*np.pi
+        if anchor_ref!=None:
+            anchor_index=np.where(domain.id==anchor_ref)
+
         def _translate_offset_symbols(symbol):
             if symbol=='-x':return np.array([-1.,0.,0.])
             elif symbol=='+x':return np.array([1.,0.,0.])
@@ -709,10 +894,17 @@ class domain_creator_sorbate():
         pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
         p_O1=pt_ct(domain,p_O1_index,offset[0])*basis
         p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
+        anchor=None
+        if anchor_index!=None:
+            anchor=pt_ct(domain,anchor_index,anchor_offset)*basis
         #print "O1",p_O1
         #print "O2",p_O2
-        octahedral_case=octahedra.share_edge(edge=np.array([p_O1,p_O2]))
-        octahedral_case.all_in_all(theta,phi,None,flag)
+        tetrahedra_case=tetrahedra.share_edge(edge=np.array([p_O1,p_O2]))
+        tetrahedra_case.cal_p2(ref_p=anchor,phi=phi)
+        tetrahedra_case.share_face_init()
+        tetrahedra_case.apply_angle_offset_BD(distal_angle_offset,distal_length_offset)
+        tetrahedra_case.apply_top_angle_offset_BD(top_angle_offset)
+        tetrahedra_case.apply_edge_offset_BD(edge_offset)
         #print "apex",pyramid_distortion.apex-[0,0.75587,7.3707]
         #print "p2",pyramid_distortion.p2-[0,0.75587,7.3707]
         def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
@@ -726,21 +918,116 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=sb_id,el='Sb',sorbate_v=octahedral_case.center_point/basis)
+        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=tetrahedra_case.center_point/basis)
+        if O_id!=[]:
+            _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=tetrahedra_case.p2/basis)
+            _add_sorbate(domain=domain,id_sorbate=O_id[1],el='O',sorbate_v=tetrahedra_case.p3/basis)
+            return [tetrahedra_case.center_point/basis,tetrahedra_case.p2/basis,tetrahedra_case.p3/basis]
+        else:
+            return [tetrahedra_case.center_point/basis]
+            
+    #get the rotation angle and edge offset and topangle offset from the coordinates of anchors and sorbate and ref
+    #note by default the bond stretch or relax along a vector define by the sorbate and the atom represented by the first item in anchor list
+    #so make sure the order of anchor and anchor_offset is right
+    #know the returned phi value is always positive although it could be negative value as well
+    #for the corner-sharing case (anchors are of same height), the returned phi is 90 degree off
+    def revert_coors_to_geometry_setting_tetrahedra_BD(self,domain,anchor=['O1_5_0_D5A','O1_8_0_D5A'],anchor_offset=[None,'+x'],sorbate='As1_D1A',sorbate_offset=None,ref='Fe1_8_0_D5A',ref_offset='+x'):
+        p_O1_index=np.where(domain.id==anchor[0])
+        p_O2_index=np.where(domain.id==anchor[1])
+        sorbate_index=np.where(domain.id==sorbate)
+        ref_index=np.where(domain.id==ref)
+        if ref_index==():
+            ref_index=None
+        basis=np.array([5.038,5.434,7.3707])
+        
+        def _translate_offset_symbols(symbol):
+            if symbol=='-x':return np.array([-1.,0.,0.])
+            elif symbol=='+x':return np.array([1.,0.,0.])
+            elif symbol=='-y':return np.array([0.,-1.,0.])
+            elif symbol=='+y':return np.array([0.,1.,0.])
+            elif symbol==None:return np.array([0.,0.,0.])
+
+        f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
+        pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
+        p0=pt_ct(domain,p_O1_index,anchor_offset[0])*basis
+        p1=pt_ct(domain,p_O2_index,anchor_offset[1])*basis
+        sorbate=pt_ct(domain,sorbate_index,sorbate_offset)*basis
         try:
+            ref=pt_ct(domain,ref_index,ref_offset)*basis
+        except:
+            ref=(p0+p1)/2.-[0,0,1]
+        #ref=pt_ct(domain,ref_index,ref_offset)*basis
+        shoulder_angle=np.arccos(np.dot((p0-p1),(sorbate-p1))/f2(p0,p1)/f2(sorbate,p1))
+        top_angle_before_offset=np.pi-2*shoulder_angle
+        original_edge_length=f2(p0,p1)/2/np.cos(shoulder_angle)
+        edge_offset=original_edge_length-f2(sorbate,p1)
+        #cal rotation angle
+        #cal the angle bwteen the associated normal vectors
+        n_v_1=np.cross(p1-p0,sorbate-p0)
+        n_v_2=np.cross(p1-p0,ref-p0)
+        rotation_angle=np.pi-np.arccos(np.dot(n_v_1,n_v_2)/f2(np.array([0,0,0]),n_v_1)/f2(np.array([0,0,0]),n_v_2))
+        print "edge_offset=",edge_offset,'A'
+        print "top_angle_offset=",top_angle_before_offset*180/np.pi-109.47," degree"
+        print "rotation angle=",rotation_angle*180/np.pi
+        return edge_offset,top_angle_before_offset*180/np.pi-109.47,rotation_angle*180/np.pi
+
+    def adding_sorbate_bidentate_octahedral(self,domain,phi=0,flag='off_center',attach_atm_ids=[],offset=[None,None],sb_id='sb1',sorbate_el='Sb',O_id=['HO1','HO2','HO3','HO4'],anchor_ref=None,anchor_offset=None):
+        #The added sorbates (including Pb and one Os) will form a edge-distorted trigonal pyramid configuration with the attached ones
+        p_O1_index=np.where(domain.id==attach_atm_ids[0])
+        p_O2_index=np.where(domain.id==attach_atm_ids[1])
+        basis=np.array([5.038,5.434,7.3707])
+        anchor_index=None
+        if anchor_ref!=None:
+            anchor_index=np.where(domain.id==anchor_ref)
+
+        def _translate_offset_symbols(symbol):
+            if symbol=='-x':return np.array([-1.,0.,0.])
+            elif symbol=='+x':return np.array([1.,0.,0.])
+            elif symbol=='-y':return np.array([0.,-1.,0.])
+            elif symbol=='+y':return np.array([0.,1.,0.])
+            elif symbol==None:return np.array([0.,0.,0.])
+
+        f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
+        pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index][0]+domain.dx1[p_O1_index][0]+domain.dx2[p_O1_index][0]+domain.dx3[p_O1_index][0],domain.y[p_O1_index][0]+domain.dy1[p_O1_index][0]+domain.dy2[p_O1_index][0]+domain.dy3[p_O1_index][0],domain.z[p_O1_index][0]+domain.dz1[p_O1_index][0]+domain.dz2[p_O1_index][0]+domain.dz3[p_O1_index][0]])+_translate_offset_symbols(symbol)
+        p_O1=pt_ct(domain,p_O1_index,offset[0])*basis
+        p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
+        anchor=None
+        if anchor_index!=None:
+            anchor=pt_ct(domain,anchor_index,anchor_offset)*basis
+        #print "O1",p_O1
+        #print "O2",p_O2
+        octahedral_case=octahedra.share_edge(edge=np.array([p_O1,p_O2]))
+        octahedral_case.all_in_all(phi/180*np.pi,anchor,flag)
+        #print "apex",pyramid_distortion.apex-[0,0.75587,7.3707]
+        #print "p2",pyramid_distortion.p2-[0,0.75587,7.3707]
+        def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+                
+        _add_sorbate(domain=domain,id_sorbate=sb_id,el=sorbate_el,sorbate_v=octahedral_case.center_point/basis)
+        if O_id!=[]:
             _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=octahedral_case.p2/basis)
             _add_sorbate(domain=domain,id_sorbate=O_id[1],el='O',sorbate_v=octahedral_case.p3/basis)
             _add_sorbate(domain=domain,id_sorbate=O_id[2],el='O',sorbate_v=octahedral_case.p4/basis)
             _add_sorbate(domain=domain,id_sorbate=O_id[3],el='O',sorbate_v=octahedral_case.p5/basis)
-        except:
-            pass
-        return [octahedral_case.center_point/basis,octahedral_case.p2/basis,octahedral_case.p3/basis,octahedral_case.p4/basis,octahedral_case.p5/basis]
+            return [octahedral_case.center_point/basis,octahedral_case.p2/basis,octahedral_case.p3/basis,octahedral_case.p4/basis,octahedral_case.p5/basis]
+        else:
+            return [octahedral_case.center_point/basis]
         
-    def adding_sorbate_pyramid_monodentate(self,domain,top_angle=1.,phi=0.,r=2.25,mirror=False,attach_atm_ids=['id1'],offset=None,pb_id='pb_id',O_id=['id1','id2']):
+    def adding_sorbate_pyramid_monodentate(self,domain,top_angle=1.,phi=0.,r=2.25,mirror=False,attach_atm_ids=['id1'],offset=None,pb_id='pb_id',sorbate_el='Pb',O_id=['id1','id2']):
         #The added sorbates (including Pb and one Os) will form a regular trigonal pyramid configuration with the attached ones
         #O-->pb vector is perpendicular to xy plane and the magnitude of this vector is r
         p_O1_index=np.where(domain.id==attach_atm_ids)[0][0]
         basis=np.array([5.038,5.434,7.3707])
+        top_angle=top_angle/180*np.pi
+        phi=phi/180*np.pi
         
         def _translate_offset_symbols(symbol):
             if symbol=='-x':return np.array([-1.,0.,0.])
@@ -767,7 +1054,7 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=pb_id,el='Pb',sorbate_v=pyramid.apex/basis)
+        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=pyramid.apex/basis)
         if O_id!=[]:
             _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=pyramid.p1/basis)
             _add_sorbate(domain=domain,id_sorbate=O_id[1],el='O',sorbate_v=pyramid.p2/basis)
@@ -808,11 +1095,56 @@ class domain_creator_sorbate():
         _add_sorbate(domain=domain,id_sorbate=O_id[2],el='O',sorbate_v=bipyramid.p3/basis)
         return [bipyramid.center_point/basis,bipyramid.p1/basis,bipyramid.p2/basis,bipyramid.p3/basis]
         
-    def adding_sorbate_octahedral_monodentate(self,domain,phi=0.,r=2.25,attach_atm_id='id1',offset=None,sb_id='sb_id',O_id=['id1','id2','id3','id4','id5']):
+    def adding_sorbate_tetrahedral_monodentate(self,domain,phi=0.,r=2.25,attach_atm_id='id0',offset=None,sorbate_id='pb_id',O_id=['id1','id2','id3'],sorbate_el='As'):
+        #The added sorbates (including Pb and one Os) will form a regular trigonal pyramid configuration with the attached ones
+        #O-->pb vector is perpendicular to xy plane and the magnitude of this vector is r
+        p_O1_index=np.where(domain.id==attach_atm_id)[0][0]
+        basis=np.array([5.038,5.434,7.3707])
+        
+        def _translate_offset_symbols(symbol):
+            if symbol=='-x':return np.array([-1.,0.,0.])
+            elif symbol=='+x':return np.array([1.,0.,0.])
+            elif symbol=='-y':return np.array([0.,-1.,0.])
+            elif symbol=='+y':return np.array([0.,1.,0.])
+            elif symbol==None:return np.array([0.,0.,0.])
+
+        f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
+        #print np.array([domain.x[p_O1_index]+domain.dx1[p_O1_index]+domain.dx2[p_O1_index]+domain.dx3[p_O1_index],domain.y[p_O1_index]+domain.dy1[p_O1_index]+domain.dy2[p_O1_index]+domain.dy3[p_O1_index],domain.z[p_O1_index]+domain.dz1[p_O1_index]+domain.dz2[p_O1_index]+domain.dz3[p_O1_index]]),_translate_offset_symbols(offset)
+        pt_ct=lambda domain,p_O1_index,symbol:np.array([domain.x[p_O1_index]+domain.dx1[p_O1_index]+domain.dx2[p_O1_index]+domain.dx3[p_O1_index],domain.y[p_O1_index]+domain.dy1[p_O1_index]+domain.dy2[p_O1_index]+domain.dy3[p_O1_index],domain.z[p_O1_index]+domain.dz1[p_O1_index]+domain.dz2[p_O1_index]+domain.dz3[p_O1_index]])+_translate_offset_symbols(symbol)
+        p_O1=pt_ct(domain,p_O1_index,offset)*basis
+        apex=p_O1+[0,0,r]
+        phi=phi/180*np.pi
+        p_O2=np.array([r*np.cos(phi)*np.sin((180-109.5)/180*np.pi),r*np.sin(phi)*np.sin((180-109.5)/180*np.pi),r*np.cos((180-109.5)/180*np.pi)])+apex
+        tetrahedra_instance=tetrahedra.share_edge(edge=np.array([p_O1,p_O2]))
+        tetrahedra_instance.cal_p2(ref_p=p_O1+p_O2-apex,phi=0)
+        tetrahedra_instance.share_face_init()
+        
+        def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+                
+        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=tetrahedra_instance.center_point/basis)
+        if O_id!=[]:
+            _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=tetrahedra_instance.p1/basis)
+            _add_sorbate(domain=domain,id_sorbate=O_id[1],el='O',sorbate_v=tetrahedra_instance.p2/basis)
+            _add_sorbate(domain=domain,id_sorbate=O_id[2],el='O',sorbate_v=tetrahedra_instance.p3/basis)
+            return [tetrahedra_instance.center_point/basis,tetrahedra_instance.p1/basis,tetrahedra_instance.p2/basis,tetrahedra_instance.p3/basis]
+        else:
+            return [tetrahedra_instance.center_point/basis]
+            
+    def adding_sorbate_octahedral_monodentate(self,domain,phi=0.,r=2.25,attach_atm_id='id1',offset=None,sb_id='sb_id',sorbate_el='Sb',O_id=['id1','id2','id3','id4','id5']):
         #The added sorbates (including Sb and one Os) will form a regular octahedral configuration with the attached ones 
         #O-->pb vector is perpendicular to xy plane and the magnitude of this vector is r
         p_O1_index=np.where(domain.id==attach_atm_id)[0][0]
         basis=np.array([5.038,5.434,7.3707])
+        phi=phi/180*np.pi
         
         def _translate_offset_symbols(symbol):
             if symbol=='-x':return np.array([-1.,0.,0.])
@@ -837,7 +1169,7 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
                 
-        _add_sorbate(domain=domain,id_sorbate=sb_id,el='Sb',sorbate_v=octahedral_case.center_point/basis)
+        _add_sorbate(domain=domain,id_sorbate=sb_id,el=sorbate_el,sorbate_v=octahedral_case.center_point/basis)
         try:
             _add_sorbate(domain=domain,id_sorbate=O_id[0],el='O',sorbate_v=octahedral_case.p1/basis)
             _add_sorbate(domain=domain,id_sorbate=O_id[1],el='O',sorbate_v=octahedral_case.p2/basis)
@@ -848,7 +1180,7 @@ class domain_creator_sorbate():
             pass
         return [octahedral_case.center_point/basis,octahedral_case.p1/basis,octahedral_case.p2/basis,octahedral_case.p3/basis,octahedral_case.p4/basis,octahedral_case.p5/basis]
   
-    def outer_sphere_complex(self,domain,cent_point=[0.5,0.5,1.],r0=1.,r1=1.,phi=0.,pb_id='pb1',O_ids=['Os1','Os2','Os3']):
+    def outer_sphere_complex(self,domain,cent_point=[0.5,0.5,1.],r0=1.,r1=1.,phi=0.,pb_id='pb1',O_ids=['Os1','Os2','Os3'],distal_oxygen=False):
         #add a regular trigonal pyramid motiff above the surface representing the outer sphere complexation
         #the pyramid is oriented either Oxygen base top (when r1 is negative) or apex top (when r1 is positive)
         #cent_point in frational coordinate is the center point of the based triangle
@@ -871,9 +1203,175 @@ class domain_creator_sorbate():
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
         _add_sorbate(domain=domain,id_sorbate=pb_id,el='Pb',sorbate_v=[apex_x,apex_y,apex_z])
-        _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=[p1_x,p1_y,p1_z])
-        _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=[p2_x,p2_y,p2_z])
-        _add_sorbate(domain=domain,id_sorbate=O_ids[2],el='O',sorbate_v=[p3_x,p3_y,p3_z])
+        if distal_oxygen:
+            _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=[p1_x,p1_y,p1_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=[p2_x,p2_y,p2_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[2],el='O',sorbate_v=[p3_x,p3_y,p3_z])
+        return np.array([apex_x,apex_y,apex_z]),np.array([p1_x,p1_y,p1_z]),np.array([p2_x,p2_y,p2_z]),np.array([p3_x,p3_y,p3_z])
+        
+    def outer_sphere_complex_2(self,domain,cent_point=[0.5,0.5,1.],r_Pb_O=2.25,O_Pb_O_ang=60,phi=0.,pb_id='pb1',sorbate_el='Pb',O_ids=['Os1','Os2','Os3'],distal_oxygen=False):
+        #add a regular trigonal pyramid motiff above the surface representing the outer sphere complexation
+        #the pyramid is oriented either Oxygen base top (when r1 is negative) or apex top (when r1 is positive)
+        #cent_point in frational coordinate is the center point of the based triangle
+        #r_Pb_O in ansgtrom is the Pb-O bond length
+        #O_Pb_O_ang in degree is the O_Pb_O bond angle
+        a,b,c=5.038,5.434,7.3707
+        r0=r_Pb_O*np.sin(O_Pb_O_ang/2*np.pi/180)/np.cos(np.pi/6)
+        r1=r_Pb_O*(np.square(np.cos(O_Pb_O_ang/2*np.pi/180))-np.square(np.sin(O_Pb_O_ang/2*np.pi/180))*np.square(np.tan(np.pi/6)))**0.5
+        phi=phi/180*np.pi
+        p1_x,p1_y,p1_z=r0*np.cos(phi)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        p2_x,p2_y,p2_z=r0*np.cos(phi+2*np.pi/3)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi+2*np.pi/3)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        p3_x,p3_y,p3_z=r0*np.cos(phi+4*np.pi/3)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi+4*np.pi/3)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        apex_x,apex_y,apex_z=cent_point[0],cent_point[1],cent_point[2]+r1/c
+        
+        def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=[apex_x,apex_y,apex_z])
+        if distal_oxygen:
+            _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=[p1_x,p1_y,p1_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=[p2_x,p2_y,p2_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[2],el='O',sorbate_v=[p3_x,p3_y,p3_z])
+        return np.array([apex_x,apex_y,apex_z]),np.array([p1_x,p1_y,p1_z]),np.array([p2_x,p2_y,p2_z]),np.array([p3_x,p3_y,p3_z])
+        
+    def outer_sphere_tetrahedral(self,domain,cent_point=[0.5,0.5,1.],r_sorbate_O=1.68,phi=0.,sorbate_id='pb1',sorbate_el='As',O_ids=['Os1','Os2','Os3','Os4'],distal_oxygen=False,rotation_x=0,rotation_y=0,rotation_z=0):
+        #add a regular trigonal pyramid motiff above the surface representing the outer sphere complexation
+        #the pyramid is oriented either Oxygen base top (when r1 is negative) or apex top (when r1 is positive)
+        #cent_point in frational coordinate is the center point of the based triangle
+        #r_Pb_O in ansgtrom is the Pb-O bond length
+        #O_Pb_O_ang in degree is the O_Pb_O bond angle
+
+        a,b,c=5.038,5.434,7.3707
+        O_Pb_O_ang=109.5
+        r0=r_sorbate_O*np.sin(O_Pb_O_ang/2*np.pi/180)/np.cos(np.pi/6)
+        r1=r_sorbate_O*(np.square(np.cos(O_Pb_O_ang/2*np.pi/180))-np.square(np.sin(O_Pb_O_ang/2*np.pi/180))*np.square(np.tan(np.pi/6)))**0.5
+        phi=phi/180*np.pi
+        p1_x,p1_y,p1_z=r0*np.cos(phi)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        p2_x,p2_y,p2_z=r0*np.cos(phi+2*np.pi/3)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi+2*np.pi/3)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        p3_x,p3_y,p3_z=r0*np.cos(phi+4*np.pi/3)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi+4*np.pi/3)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        apex_x,apex_y,apex_z=cent_point[0],cent_point[1],cent_point[2]+r1/c
+        p4_x,p4_y,p4_z=apex_x,apex_y,apex_z+r_sorbate_O/c
+        rot_x,rot_y,rot_z=rotation_x/180*np.pi,rotation_y/180*np.pi,rotation_z/180*np.pi
+        T_rot=f4(rot_x,rot_y,rot_z)
+        origin=np.array([apex_x,apex_y,apex_z])*[a,b,c]
+        p1=np.array([p1_x,p1_y,p1_z])*[a,b,c]
+        p2=np.array([p2_x,p2_y,p2_z])*[a,b,c]
+        p3=np.array([p3_x,p3_y,p3_z])*[a,b,c]
+        p4=np.array([p4_x,p4_y,p4_z])*[a,b,c]
+        p1_new=(np.dot(T_rot,p1-origin)+origin)/[a,b,c]
+        p2_new=(np.dot(T_rot,p2-origin)+origin)/[a,b,c]
+        p3_new=(np.dot(T_rot,p3-origin)+origin)/[a,b,c]
+        p4_new=(np.dot(T_rot,p4-origin)+origin)/[a,b,c]
+        
+        def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=[apex_x,apex_y,apex_z])
+        if distal_oxygen:
+            _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=p1_new)
+            _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=p2_new)
+            _add_sorbate(domain=domain,id_sorbate=O_ids[2],el='O',sorbate_v=p3_new)
+            _add_sorbate(domain=domain,id_sorbate=O_ids[3],el='O',sorbate_v=p4_new)
+
+        return np.array([apex_x,apex_y,apex_z]),p1_new,p2_new,p3_new,p4_new
+        
+    def outer_sphere_tetrahedral2(self,domain,cent_point=[0.5,0.5,1.],r_sorbate_O=1.68,phi=0.,sorbate_id='pb1',sorbate_el='As',O_ids=['Os1','Os2','Os3','Os4'],distal_oxygen=False,rotation_x=0,rotation_y=0,rotation_z=0):
+        #add a regular trigonal pyramid motiff above the surface representing the outer sphere complexation
+        #the pyramid is oriented either Oxygen base top (when r1 is negative) or apex top (when r1 is positive)
+        #cent_point in frational coordinate is the center point of the tetrahedral (body center)
+        #r_Pb_O in ansgtrom is the Pb-O bond length
+        #O_Pb_O_ang in degree is the O_Pb_O bond angle
+
+        a,b,c=5.038,5.434,7.3707
+        O_Pb_O_ang=109.5
+        r0=r_sorbate_O*np.sin(O_Pb_O_ang/2*np.pi/180)/np.cos(np.pi/6)
+        r1=r_sorbate_O*(np.square(np.cos(O_Pb_O_ang/2*np.pi/180))-np.square(np.sin(O_Pb_O_ang/2*np.pi/180))*np.square(np.tan(np.pi/6)))**0.5
+        phi=phi/180*np.pi
+        cent_point=cent_point-np.array([0,0,r1/c])
+        p1_x,p1_y,p1_z=r0*np.cos(phi)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        p2_x,p2_y,p2_z=r0*np.cos(phi+2*np.pi/3)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi+2*np.pi/3)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        p3_x,p3_y,p3_z=r0*np.cos(phi+4*np.pi/3)*np.sin(np.pi/2.)/a+cent_point[0],r0*np.sin(phi+4*np.pi/3)*np.sin(np.pi/2.)/b+cent_point[1],r0*np.cos(np.pi/2.)/c+cent_point[2]
+        apex_x,apex_y,apex_z=cent_point[0],cent_point[1],cent_point[2]+r1/c
+        p4_x,p4_y,p4_z=apex_x,apex_y,apex_z+r_sorbate_O/c
+        rot_x,rot_y,rot_z=rotation_x/180*np.pi,rotation_y/180*np.pi,rotation_z/180*np.pi
+        T_rot=f4(rot_x,rot_y,rot_z)
+        origin=np.array([apex_x,apex_y,apex_z])*[a,b,c]
+        p1=np.array([p1_x,p1_y,p1_z])*[a,b,c]
+        p2=np.array([p2_x,p2_y,p2_z])*[a,b,c]
+        p3=np.array([p3_x,p3_y,p3_z])*[a,b,c]
+        p4=np.array([p4_x,p4_y,p4_z])*[a,b,c]
+        p1_new=(np.dot(T_rot,p1-origin)+origin)/[a,b,c]
+        p2_new=(np.dot(T_rot,p2-origin)+origin)/[a,b,c]
+        p3_new=(np.dot(T_rot,p3-origin)+origin)/[a,b,c]
+        p4_new=(np.dot(T_rot,p4-origin)+origin)/[a,b,c]
+        
+        def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+        _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=[apex_x,apex_y,apex_z])
+        if distal_oxygen:
+            _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=p1_new)
+            _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=p2_new)
+            _add_sorbate(domain=domain,id_sorbate=O_ids[2],el='O',sorbate_v=p3_new)
+            _add_sorbate(domain=domain,id_sorbate=O_ids[3],el='O',sorbate_v=p4_new)
+
+        return np.array([apex_x,apex_y,apex_z]),p1_new,p2_new,p3_new,p4_new
+        
+    def outer_sphere_complex_oct(self,domain,cent_point=[0.5,0.5,1.],r0=1.,phi=0.,Sb_id='Sb1',sorbate_el='Sb',O_ids=['Os1','Os2','Os3','Os4','Os5','Os6'],distal_oxygen=False):
+        #add a regular trigonal pyramid motiff above the surface representing the outer sphere complexation
+        #the pyramid is oriented either Oxygen base top (when r1 is negative) or apex top (when r1 is positive)
+        #cent_point in frational coordinate is the center point of the based triangle
+        #r0 in ansgtrom is the distance between cent_point and oxygens in the based
+        #r1 in angstrom is the distance bw cent_point and apex
+        a,b,c=5.038,5.434,7.3707
+        p1_x,p1_y,p1_z=r0*np.cos(phi)*np.sin(0.95531)/a+cent_point[0],r0*np.sin(phi)*np.sin(0.95531)/b+cent_point[1],r0*np.cos(0.95531)/c+cent_point[2]
+        p2_x,p2_y,p2_z=r0*np.cos(phi+np.pi*1/3)*np.sin(-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*1/3)*np.sin(-0.95531)/b+cent_point[1],r0*np.cos(-0.95531)/c+cent_point[2]
+        p3_x,p3_y,p3_z=r0*np.cos(phi+np.pi*2/3)*np.sin(0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*2/3)*np.sin(0.95531)/b+cent_point[1],r0*np.cos(0.95531)/c+cent_point[2]
+        p4_x,p4_y,p4_z=r0*np.cos(phi+np.pi*3/3)*np.sin(-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*3/3)*np.sin(-0.95531)/b+cent_point[1],r0*np.cos(-0.95531)/c+cent_point[2]
+        p5_x,p5_y,p5_z=r0*np.cos(phi+np.pi*4/3)*np.sin(0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*4/3)*np.sin(0.95531)/b+cent_point[1],r0*np.cos(0.95531)/c+cent_point[2]
+        p6_x,p6_y,p6_z=r0*np.cos(phi+np.pi*5/3)*np.sin(-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*5/3)*np.sin(-0.95531)/b+cent_point[1],r0*np.cos(-0.95531)/c+cent_point[2]
+        apex_x,apex_y,apex_z=cent_point[0],cent_point[1],cent_point[2]
+        
+        def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
+            sorbate_index=None
+            try:
+                sorbate_index=np.where(domain.id==id_sorbate)[0][0]
+            except:
+                domain.add_atom( id_sorbate, el,  sorbate_v[0] ,sorbate_v[1], sorbate_v[2] ,0.5,     1.00000e+00 ,     1.00000e+00 )
+            if sorbate_index!=None:
+                domain.x[sorbate_index]=sorbate_v[0]
+                domain.y[sorbate_index]=sorbate_v[1]
+                domain.z[sorbate_index]=sorbate_v[2]
+        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=[apex_x,apex_y,apex_z])
+        if distal_oxygen:
+            _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=[p1_x,p1_y,p1_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=[p2_x,p2_y,p2_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[2],el='O',sorbate_v=[p3_x,p3_y,p3_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[3],el='O',sorbate_v=[p4_x,p4_y,p4_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[4],el='O',sorbate_v=[p5_x,p5_y,p5_z])
+            _add_sorbate(domain=domain,id_sorbate=O_ids[5],el='O',sorbate_v=[p6_x,p6_y,p6_z])
+        return np.array([apex_x,apex_y,apex_z]),np.array([p1_x,p1_y,p1_z]),np.array([p2_x,p2_y,p2_z]),np.array([p3_x,p3_y,p3_z]),np.array([p4_x,p4_y,p4_z]),np.array([p5_x,p5_y,p5_z]),np.array([p6_x,p6_y,p6_z])
         
     def outer_sphere_complex2(self,domain,cent_point=[0.5,0.5,1.],r0=1.,r1=1.,phi1=0.,phi2=0.,theta=1.57,pb_id='pb1',O_ids=['Os1','Os2','Os3']):
         #different from version 1:consider the orientation of the pyramid, not just up and down

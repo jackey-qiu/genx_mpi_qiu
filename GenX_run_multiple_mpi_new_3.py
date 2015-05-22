@@ -31,13 +31,14 @@ def find_boundary(n_process,n_jobs,rank):
         right=remainder*(step_len+1)+(rank-remainder+1)*step_len-1
     return left,right
 # Okay lets make it possible to batch script this file ...
-if len(sys.argv) !=2:
+if len(sys.argv) !=3:
     print sys.argv
     print 'Wrong number of arguments to %s'%sys.argv[0]
     print 'Usage: %s infile.gx'%sys.argv[0]
     sys.exit(1)
    
 infile = sys.argv[1]
+pop_num=int(sys.argv[2])
 
 t_start_0=datetime.now()
 ###############################################################################
@@ -90,11 +91,11 @@ create_trial = ['best_1_bin']#'best_1_bin','rand_1_bin',#'best_either_or','rand_
 # Population size
 use_pop_mult = False             # absolute (F) or relative (T) population size
 pop_mult = 8 			 # if use_pop_mult = True, populatio multiplier
-pop_size = 600               # if use_pop_mult = False, population size
+pop_size = pop_num        # if use_pop_mult = False, population size
 
 # Generations
 use_max_generations = True       # absolute (T) or relative (F) maximum gen.
-max_generations = 10000      # if use_max_generations = True
+max_generations=pop_num*20      # if use_max_generations = True
 max_generation_mult = 6          # if use_max_generations = False
 
 # Parallel processing
@@ -104,7 +105,7 @@ use_parallel_processing = True
 use_start_guess = False
 use_boundaries = True
 use_autosave = True
-autosave_interval = 100
+autosave_interval = 200
 max_log = 600000
 
 # Sleep time between generations
@@ -320,7 +321,8 @@ for pars in par_list:
     # build outfile name
     outfile = infile
     outfile = outfile.replace('.gx','')
-    outfile = '%s_%s_%s_kr%.2f_km%.2f_pf%.2f_run%d.gx' % (outfile, trial,fom, kr, km, pf,iter)
+    #outfile = '%s_%s_%s_kr%.2f_km%.2f_pf%.2f_run%d.gx' % (outfile, trial,fom, kr, km, pf,iter)
+    outfile=outfile+fom+str(iter)+'_ran.gx'
     #outfile = '%s_%s_run%d.gx' % (outfile, TAG, iter)
     if rank==0:
         print 'Saving the initial model to %s'%outfile
@@ -497,8 +499,38 @@ for pars in par_list:
         opt.new_best = False
         # Do an autosave if activated and the interval is coorect
         if rank==0 and gen%opt.autosave_interval == 0 and opt.use_autosave:
-            opt.autosave()
 
+            opt.autosave()
+	if gen%opt.autosave_interval==0:
+	    
+	    std_val=std(opt.fom_log[:,1][-200:])
+	    if std_val<-1:
+		if rank==0:
+		    opt.text_output('std='+str(std_val))
+	        break
+            else:
+		if rank==0:
+                    opt.text_output('std='+str(std_val))
+            	    #calculate the error bar for parameters
+            	    n_elements = len(opt.start_guess)
+                    #print 'Number of elemets to calc errobars for ', n_elements
+                    cum_N=0
+                    for index in range(n_elements):
+                        # calculate the error
+                        # TODO: Check the error bar buisness again and how to treat
+                        # Chi2
+                        #print "senor",self.fom_error_bars_level
+                        try:
+                            (error_low, error_high) = opt.calc_error_bar(index, 1.05)
+                        except:
+                            break
+                        error_str = '(%.3e, %.3e)'%(error_low, error_high)
+                        while mod.parameters.get_value(index+cum_N,2)!=True:
+                            cum_N=cum_N+1
+                        mod.parameters.set_value(index+cum_N,5,error_str)
+	            opt.autosave()
+
+	    
     if rank==0:
         if not opt.error:
             opt.text_output('Stopped at Generation: %d after %d fom evaluations...'%(gen, opt.n_fom))
@@ -563,3 +595,5 @@ for pars in par_list:
         print "headover time is ",str(t_mid-t_start_0)
         print "fitting time is ",str(t_end-t_mid)
         print 'Fitting sucessfully finished with mean speed of ',mean_speed/speed_inc
+    else:
+        pass

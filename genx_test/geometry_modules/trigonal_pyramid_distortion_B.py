@@ -107,6 +107,7 @@ class trigonal_pyramid_distortion():
         #basic idea:set z vector rooting from EC to cp, x vector from EC to A (normalized to length of 1)
         #use angle of theta (pi/2 here) and phi (the angle A_EC_P2, can be calculated) to sove P2 finally 
         #if consider mirror then p2 will be on the other side
+        #note this only work for cases without angle offset
         side_center=(p0+self.cross_pt)/2.
         origin=side_center
         z_v=f3(np.zeros(3),(self.cross_pt-side_center))
@@ -122,7 +123,8 @@ class trigonal_pyramid_distortion():
         p2_new=np.array([r*np.cos(phi)*np.sin(theta),r*np.sin(phi)*np.sin(theta),r*np.cos(theta)])
         _p2=np.dot(inv(T),p2_new)+origin
         _p2_v=_p2-self.apex
-        scale=(f2(_p2,self.apex)+self.len_offset[1])/f2(_p2,self.apex)
+        #scale to the shorter length between apex and p0 or p1
+        scale=(min([f2(self.p0,self.apex),f2(self.p1,self.apex)])+self.len_offset[1])/f2(_p2,self.apex)
         p2_v=_p2_v*scale
         self.p2=p2_v+self.apex
         

@@ -183,7 +183,6 @@ bg_peaks={'00':[0,2,4,6],'02':[-8.2782,-6.2782,-4.2782,-2.2782,-0.2782,1.7218,3.
           '20':[-8,-6,-4,-2,0,2,4,6,8],'22':[-8.2782,-6.2782,-4.2782,-2.2782,-0.2782,1.7218,3.7218,5.7218,7.7218],\
           '30':[-9,-7,-5,-1,1,5,7,9],'2-1':[-8.8609,-6.8609,-4.8609,-0.8609,3.1391,5.1391,7.1391],\
           '21':[-7.1391,-5.1391,-3.1391,0.8609,4.8609,6.8609]}
-          
 #==============================================================================
 # BEGIN FOM function defintions
 
@@ -271,22 +270,19 @@ Norm.__div_dof__ = True
 def chi2bars(simulations, data):
     ''' Weighted chi squared
     '''
-    def _weight_fom(offset_list=[]):
-        wt_array=[]
-        for offset in offset_list:
-            if offset>=0&offset<20:wt_array.append(1)
-            elif offset>=20&offset<40:wt_array.append(5)
-            elif offset>=40&offset<60:wt_array.append(10)
-            elif offset>=60&offset<80:wt_array.append(15)
-            elif offset>=80&offset<100:wt_array.append(20)
-            else:wt_array.append(30)
-        return np.array(wt_array)
-            
     N = np.sum([len(dataset.y)*dataset.use for dataset in data])
     return [(dataset.y - sim)**2/dataset.error**2 for (dataset, sim) in zip(data,simulations)]
 chi2bars.__div_dof__ = True
 
-def chibars(simulations, data):
+def chi2bars_w_trainor(simulations, data):
+    ''' Weighted chi squared
+    '''
+    N = np.sum([len(dataset.y)*dataset.use for dataset in data])
+    return [(dataset.y - sim)**2/(dataset.y*0.2)**2 for (dataset, sim) in zip(data,simulations)]
+chi2bars_w_trainor.__div_dof__ = True
+
+#fom's are weighted with dip zones having higher wt number and bragg peak zone having lower wt number
+def chi2bars_weighted(simulations, data):
     ''' Weighted chi squared
     '''
     def _weight_fom(h,k,l_list=[]):
@@ -309,9 +305,9 @@ def chibars(simulations, data):
     N = np.sum([len(dataset.y)*dataset.use for dataset in data])
     return [np.sign(dataset.y - sim)*(dataset.y - sim)**2/dataset.error**2*_weight_fom(dataset.extra_data['h'][0],dataset.extra_data['k'][0],dataset.x)
         for (dataset, sim) in zip(data,simulations)]
-chibars.__div_dof__ = True
+chi2bars_weighted.__div_dof__ = True
 
-"""
+
 def chibars(simulations, data):
     ''' Weighted chi squared but without the squaring
     '''
@@ -319,7 +315,7 @@ def chibars(simulations, data):
     return [((dataset.y - sim)/dataset.error)
         for (dataset, sim) in zip(data,simulations)]
 chibars.__div_dof__ = True
-"""
+
 def logbars(simulations, data):
     ''' Weighted average absolute difference of the logarithm of the data
     '''

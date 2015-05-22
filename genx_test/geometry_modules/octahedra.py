@@ -42,14 +42,15 @@ O11_top,O12_top=[0.153,0.9452,2.097]*basis,[0.347,0.4452,2.097]*basis
 anchor1,anchor2=O1,O2
 
 class share_face():
-    def __init__(self,face=np.array([[0.,0.,0.],[0.5,0.5,0.5],[1.0,1.0,1.0]])):
+    def __init__(self,face=np.array([[0.,0.,2.5],[2.5,0,0.],[0,2.5,0]])):
         #pass in the vector of three known vertices
         self.face=face
 
-    def share_face_init(self,flag='right_triangle'):
+    def share_face_init(self,flag='right_triangle',dr=[0,0,0]):
         #octahedra has a high symmetrical configuration,there are only two types of share face.
         #flag 'right_triangle' means the shared face is defined by a right triangle with two equal lateral and the other one
         #passing through body center;'regular_triangle' means the shared face is defined by a regular triangle
+        #dr is used for fitting purpose, set this to be 0 to get a regular octahedral
         p0,p1,p2=self.face[0,:],self.face[1,:],self.face[2,:]
         #consider the possible unregular shape for the known triangle
         dist_list=[np.sqrt(np.sum((p0-p1)**2)),np.sqrt(np.sum((p1-p2)**2)),np.sqrt(np.sum((p0-p2)**2))]
@@ -80,9 +81,9 @@ class share_face():
                     center_point_org=2*origin-center_point_org
                 return center_point_org
             self.center_point=_cal_center(p0,p1,p2)
-        self._find_the_other_three(self.center_point,p0,p1,p2,flag)
+        self._find_the_other_three(self.center_point,p0,p1,p2,flag,dr)
         
-    def _find_the_other_three(self,center_point,p0,p1,p2,flag):
+    def _find_the_other_three(self,center_point,p0,p1,p2,flag,dr):
         dist_list=[np.sqrt(np.sum((p0-p1)**2)),np.sqrt(np.sum((p1-p2)**2)),np.sqrt(np.sum((p0-p2)**2))]
         index=dist_list.index(max(dist_list))
         
@@ -94,6 +95,7 @@ class share_face():
                 y_v=np.cross(z_v,x_v)
                 T=f1(x0_v,y0_v,z0_v,x_v,y_v,z_v)
                 r=f2(center_point,p0)
+                #print [r*np.cos(np.pi/2)*np.sin(np.pi/2),r*np.sin(np.pi/2)*np.sin(np.pi/2),0]
                 p3_new=np.array([r*np.cos(np.pi/2)*np.sin(np.pi/2),r*np.sin(np.pi/2)*np.sin(np.pi/2),0])
                 p4_new=np.array([r*np.cos(3*np.pi/2)*np.sin(np.pi/2),r*np.sin(3*np.pi/2)*np.sin(np.pi/2),0])
                 p3_old=np.dot(inv(T),p3_new)+center_point
@@ -112,9 +114,10 @@ class share_face():
             z_v=np.cross(x_v,x_v)
             self.T=f1(x0_v,y0_v,z0_v,x_v,y_v,z_v)
             self.r=f2(center_point,p0)
-            self.p3=2*center_point-p0
-            self.p4=2*center_point-p1
-            self.p5=2*center_point-p2
+            self.p3=(center_point-p0)*((self.r+dr[0])/self.r)+center_point
+            self.p4=(center_point-p1)*((self.r+dr[1])/self.r)+center_point
+            self.p5=(center_point-p2)*((self.r+dr[2])/self.r)+center_point
+            #print f2(self.center_point,self.p3),f2(self.center_point,self.p4)
              
     def cal_point_in_fit(self,r,theta,phi):
         #during fitting,use the same coordinate system, but a different origin
@@ -130,11 +133,11 @@ class share_face():
         f.write('7\n#\n')
         s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('Sb', self.center_point[0],self.center_point[1],self.center_point[2])
         f.write(s)
-        s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.corner[0],self.corner[1],self.corner[2])
+        s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.face[0,:][0],self.face[0,:][1],self.face[0,:][2])
         f.write(s)
-        s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.p1[0],self.p1[1],self.p1[2])
+        s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.face[1,:][0],self.face[1,:][1],self.face[1,:][2])
         f.write(s)
-        s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.p2[0],self.p2[1],self.p2[2])
+        s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.face[2,:][0],self.face[2,:][1],self.face[2,:][2])
         f.write(s)
         s = '%-5s   %7.5e   %7.5e   %7.5e\n' % ('O', self.p3[0],self.p3[1],self.p3[2])
         f.write(s)
@@ -148,7 +151,7 @@ class share_edge(share_face):
     def __init__(self,edge=np.array([[0.,0.,0.],[5,5,5]])):
         self.edge=edge
         
-    def cal_p2(self,ref_p=None,theta=0.,phi=np.pi/2,flag='off_center',**args):
+    def cal_p2(self,ref_p=None,phi=np.pi/2,flag='off_center',**args):
         p0=self.edge[0,:]
         p1=self.edge[1,:]
         origin=(p0+p1)/2
@@ -157,7 +160,8 @@ class share_edge(share_face):
         c=np.sum(p1**2-p0**2)
         ref_point=0
         if ref_p!=None:
-            ref_point=ref_p
+            ref_point=np.cross(p0-origin,np.cross(p0-origin,ref_p-origin))+origin
+            #print ref_point
         elif diff[2]==0:
             ref_point=origin+[0,0,1]
         else:
@@ -194,23 +198,23 @@ class share_edge(share_face):
             self.face=np.append(self.edge,[p2_old],axis=0)
             self.flag='right_triangle'
         elif flag=='off_center':
-            z1_v=f3(np.zeros(3),ref_point-origin)
-            x1_v=f3(np.zeros(3),p1-origin)
+            x1_v=f3(np.zeros(3),ref_point-origin)
+            z1_v=f3(np.zeros(3),p1-origin)
             y1_v=np.cross(z1_v,x1_v)
             T=f1(x0_v,y0_v,z0_v,x1_v,y1_v,z1_v)
             r=dist/2.
-            #note in this case, phi can be either pi/2 or 3pi/2, theta can be any value in the range of [0,pi]
-            x_center=r*np.cos(phi)*np.sin(theta)
-            y_center=r*np.sin(phi)*np.sin(theta)
-            z_center=r*np.cos(theta)
+            #note in this case, phi can be in the range of [0,2pi]
+            x_center=r*np.cos(phi)*np.sin(np.pi/2)
+            y_center=r*np.sin(phi)*np.sin(np.pi/2)
+            z_center=r*np.cos(np.pi/2)
             center_org=np.dot(inv(T),np.array([x_center,y_center,z_center]))+origin
             p2_old=2*center_org-p0
             self.p2=p2_old
             self.face=np.append(self.edge,[p2_old],axis=0)
             self.flag='right_triangle'
     
-    def all_in_all(self,theta=np.pi/2,phi=np.pi/2,ref_p=None,flag='off_center'):
-        self.cal_p2(ref_p=None,theta=theta,phi=phi,flag=flag)
+    def all_in_all(self,phi=np.pi/2,ref_p=None,flag='off_center'):
+        self.cal_p2(ref_p=ref_p,phi=phi,flag=flag)
         self.share_face_init(self.flag)
         
 #steric_check will check the steric feasibility by changing the theta angle (0-pi) and or phi [0,2pi]
