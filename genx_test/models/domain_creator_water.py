@@ -214,7 +214,11 @@ class domain_creator_water():
         return np.append([point1],[point2],axis=0)
 
     def add_oxygen_pair2B(self,domain,ref_id,O_ids,v_shift,r,alpha):
+<<<<<<< HEAD
     #v_shift and r are in unit of angstrom, and phi in degree
+=======
+    #v_shift and r are in unit of angstrom
+>>>>>>> 9e6d28bc700c85195aca824e9afca4bf63d846fc
     #use coordinates during fitting rather than freezing the ref to the bulk position
         basis=np.array([5.038,5.434,7.3707])
         ref_point=None
@@ -224,8 +228,13 @@ class domain_creator_water():
             ref_point1=domain_creator.extract_coor(domain,ref_id[0])*basis
             ref_point2=domain_creator.extract_coor(domain,ref_id[1])*basis
             ref_point=(ref_point1+ref_point2)/2+[0,0,v_shift]
+<<<<<<< HEAD
         x_shift=r*np.cos(alpha/180*np.pi)
         y_shift=r*np.sin(alpha/180*np.pi)
+=======
+        x_shift=r*np.cos(alpha)
+        y_shift=r*np.sin(alpha)
+>>>>>>> 9e6d28bc700c85195aca824e9afca4bf63d846fc
         point1=np.array([ref_point[0]-x_shift,ref_point[1]-y_shift,ref_point[2]])/basis
         point2=np.array([ref_point[0]+x_shift,ref_point[1]+y_shift,ref_point[2]])/basis
         O_index1=None
@@ -241,6 +250,7 @@ class domain_creator_water():
             domain.x[O_index2],domain.y[O_index2],domain.z[O_index2]=point2[0],point2[1],point2[2]
         return np.append([point1],[point2],axis=0)
         
+<<<<<<< HEAD
     def cal_geometry_pars_from_coors(self,domain,ref_ids,sorbate_ids):
         def _shift_in_unit_cell(coors):
             [x,y,z]=coors
@@ -267,6 +277,8 @@ class domain_creator_water():
         alpha=np.arccos(np.dot(vec_ref,vec_sorbate)/f2(vec_ref,np.array([0,0,0]))/f2(vec_sorbate,np.array([0,0,0])))/np.pi*180.
         return v_shift,alpha,y_shift
         
+=======
+>>>>>>> 9e6d28bc700c85195aca824e9afca4bf63d846fc
     def add_single_oxygen(self,domain,ref_id,O_id,v_shift):
     #v_shift and r are in unit of angstrom
     #use coordinates during fitting rather than freezing the ref to the bulk position
