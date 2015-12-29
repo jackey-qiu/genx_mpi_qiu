@@ -77,7 +77,7 @@ class trigonal_pyramid_distortion():
         a,b,c=n_v[0],n_v[1],n_v[2]
         x0,y0,z0=p1[0],p1[1],p1[2]
         ref_p=0
-        if c==0:
+        if c==0 and self.ref==None:
             ref_p=p1+[0,0,1]
         elif self.ref!=None:
             ref_p=np.cross(p0-p1,np.cross(p0-p1,self.ref-p1))+p1

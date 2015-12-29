@@ -8,8 +8,7 @@ import operator
 from numpy.linalg import inv
 from copy import deepcopy
 from random import uniform
-import hexahedra,hexahedra_distortion,tetrahedra,octahedra,tetrahedra_edge_distortion,trigonal_pyramid_distortion,trigonal_pyramid_distortion_B,trigonal_pyramid_distortion_shareface,trigonal_pyramid_distortion2,trigonal_pyramid_distortion3,trigonal_pyramid_distortion4
-import trigonal_pyramid_known_apex
+from geometry_modules import *
 from domain_creator_water import domain_creator_water
 from domain_creator_sorbate import domain_creator_sorbate
 from domain_creator_surface import domain_creator_surface
@@ -332,6 +331,98 @@ def print_data2(N_sorbate=4,domain='',z_shift=1,half_layer=False,half_layer_long
             f.write(s)
     f.close()
     
+def print_data2C(N_sorbate=4,domain='',z_shift=1,half_layer=False,half_layer_long=None,full_layer_long=0,save_file='D://model.xyz',sorbate_index_list=[],each_segment_length=[]):
+    #extract only one set of sorbate
+    data=domain._extract_values()
+    index_all=range(len(data[0]))
+    index=None
+    if half_layer and half_layer_long==3:
+        index=index_all[0:20]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[40+sorbate_index_list[i]:40+sorbate_index_list[i]+each_segment_length[i]]
+    elif half_layer and half_layer_long==2:
+        index=index_all[0:20]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[30+sorbate_index_list[i]:30+sorbate_index_list[i]+each_segment_length[i]]
+    elif not half_layer and full_layer_long==1:
+        index=index_all[0:22]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[42+sorbate_index_list[i]:42+sorbate_index_list[i]+each_segment_length[i]]
+    elif not half_layer and full_layer_long==0:
+        index=index_all[0:22]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[32+sorbate_index_list[i]:32+sorbate_index_list[i]+each_segment_length[i]]
+    if half_layer:
+        index.pop(2)
+        index.pop(2)
+    f=open(save_file,'w')
+    f.write(str(len(index))+'\n#\n')
+    if half_layer_long==2 or full_layer_long==0:
+        z_shift=0.5
+    else:
+        z_shift=1
+    for i in index:
+        if i==index[-1]:
+            s = '%-5s   %7.5e   %7.5e   %7.5e' % (data[3][i],data[0][i]*5.038,(data[1][i]-0.1391)*5.434,(data[2][i]-z_shift)*7.3707)
+            f.write(s)
+        else:
+            s = '%-5s   %7.5e   %7.5e   %7.5e\n' % (data[3][i],data[0][i]*5.038,(data[1][i]-0.1391)*5.434,(data[2][i]-z_shift)*7.3707)
+            f.write(s)
+    f.close()
+    
+def make_cif_file(N_sorbate=4,domain='',z_shift=1,half_layer=False,half_layer_long=None,full_layer_long=0,save_file='D://model.xyz',sorbate_index_list=[],each_segment_length=[]):
+    #extract only one set of sorbate
+    data=domain._extract_values()
+    index_all=range(len(data[0]))
+    index=None
+    if half_layer and half_layer_long==3:
+        index=index_all[0:20]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[40+sorbate_index_list[i]:40+sorbate_index_list[i]+each_segment_length[i]]
+    elif half_layer and half_layer_long==2:
+        index=index_all[0:20]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[30+sorbate_index_list[i]:30+sorbate_index_list[i]+each_segment_length[i]]
+    elif not half_layer and full_layer_long==1:
+        index=index_all[0:22]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[42+sorbate_index_list[i]:42+sorbate_index_list[i]+each_segment_length[i]]
+    elif not half_layer and full_layer_long==0:
+        index=index_all[0:22]
+        for i in range(len(sorbate_index_list)):
+            index=index+index_all[32+sorbate_index_list[i]:32+sorbate_index_list[i]+each_segment_length[i]]
+    if half_layer:
+        index.pop(2)
+        index.pop(2)
+    c=(np.max(data[2])+0.3-z_shift)*7.3707
+    f=open(save_file,'w')
+    f.write('data_global\n')
+    f.write("_chemical_name_mineral 'Hematite'\n")
+    f.write("_chemical_formula_sum 'Fe2 O3'\n")
+    f.write("_cell_length_a 5.038\n")
+    f.write("_cell_length_b 5.434\n")
+    f.write("_cell_length_c "+str(c)+"\n")
+    f.write("_cell_angle_alpha 90\n")
+    f.write("_cell_angle_beta 90\n")
+    f.write("_cell_angle_gamma 90\n")
+    f.write("_cell_volume 201.784\n")
+    f.write("_symmetry_space_group_name_H-M 'P 1'\nloop_\n_space_group_symop_operation_xyz\n  'x,y,z'\nloop_\n")
+    f.write("_atom_site_label\n_atom_site_fract_x\n_atom_site_fract_y\n_atom_site_fract_z\n")
+    
+    
+    if half_layer_long==2 or full_layer_long==0:
+        z_shift=0.5
+    else:
+        z_shift=1
+    for i in index:
+        if i==index[-1]:
+            s = '%-5s   %7.5e   %7.5e   %7.5e' % (data[3][i],data[0][i],(data[1][i]-0.1391),(data[2][i]-z_shift)*7.3707/c)
+            f.write(s)
+        else:
+            s = '%-5s   %7.5e   %7.5e   %7.5e\n' % (data[3][i],data[0][i],(data[1][i]-0.1391),(data[2][i]-z_shift)*7.3707/c)
+            f.write(s)
+    f.close()
+    
 def print_data2B(N_sorbate=4,domain='',z_shift=1,half_layer=False,half_layer_long=None,full_layer_long=0,save_file='D://model.xyz'):
     #moving slab down if z_shift is a negative number
     #moving slab up if z_shift is a positive number
@@ -389,6 +480,127 @@ def print_data_for_publication(N_sorbate=4,domain='',z_shift=1,half_layer=False,
             s = '%-5s\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%4.2f\t%4.2f\n' % (data[3][i],data[0][i],data[1][i]-0.1391,data[2][i]-z_shift,(data[0][i]-domain.x[i])*5.038,(data[1][i]-domain.y[i])*5.434,(data[2][i]-domain.z[i])*7.3707,domain.u[i],domain.oc[i])
             f.write(s)
     f.close()
+
+def print_data_for_publication_B(N_sorbate=4,domain='',z_shift=1,half_layer=False,full_layer_long=0,save_file='D://model.xyz'):
+    #very similar to print_data_for_publication but also output the ids in the first column
+    data=domain._extract_values()
+    index_all=range(len(data[0]))
+    index=None
+    if half_layer:
+        index=index_all[0:20]+index_all[40:40+N_sorbate]
+    else:
+        if full_layer_long:
+            index=index_all[0:22]+index_all[42:42+N_sorbate]
+        else:
+            index=index_all[0:12]+index_all[32:32+N_sorbate]
+    if half_layer:
+        index.pop(2)
+        index.pop(2)
+    f=open(save_file,'w')
+    #f.write(str(len(index))+'\n#\n')
+    for i in index:
+        if i==index[-1]:
+            s = '%s\t%s\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%4.2f\t%4.2f' % (domain.id[i],data[3][i],data[0][i],data[1][i]-0.1391,data[2][i]-z_shift,(data[0][i]-domain.x[i])*5.038,(data[1][i]-domain.y[i])*5.434,(data[2][i]-domain.z[i])*7.3707,domain.u[i],domain.oc[i])
+            f.write(s)
+        else:
+            s = '%s\t%s\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%4.2f\t%4.2f\n' % (domain.id[i],data[3][i],data[0][i],data[1][i]-0.1391,data[2][i]-z_shift,(data[0][i]-domain.x[i])*5.038,(data[1][i]-domain.y[i])*5.434,(data[2][i]-domain.z[i])*7.3707,domain.u[i],domain.oc[i])
+            f.write(s)
+    f.close()
+    
+def print_data_for_publication_B2(N_sorbate=4,domain='',z_shift=1,layer_types=0,save_file='D://model.xyz'):
+    #very similar to print_data_for_publication_B but use numbers to identify the layer type (long or short HLT/FLT)
+    #0(short FLT),1(long FLT), 2(short HLT), 3(long HLT)
+    data=domain._extract_values()
+    index_all=range(len(data[0]))
+    index=None
+    if layer_types==0:
+        index=index_all[0:12]+index_all[32:32+N_sorbate]
+    elif layer_types==1:
+        index=index_all[0:22]+index_all[42:42+N_sorbate]
+    elif layer_types==2:
+        index=index_all[0:10]+index_all[30:30+N_sorbate]
+        index.pop(2)
+        index.pop(2)
+    elif layer_types==3:
+        index=index_all[0:20]+index_all[40:40+N_sorbate]
+        index.pop(2)
+        index.pop(2)
+    f=open(save_file,'w')
+    #f.write(str(len(index))+'\n#\n')
+    for i in index:
+        if i==index[-1]:
+            s = '%s\t%s\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%4.2f\t%4.2f' % (domain.id[i],data[3][i],data[0][i],data[1][i]-0.1391,data[2][i]-z_shift,(data[0][i]-domain.x[i])*5.038,(data[1][i]-domain.y[i])*5.434,(data[2][i]-domain.z[i])*7.3707,domain.u[i],domain.oc[i])
+            f.write(s)
+        else:
+            s = '%s\t%s\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%5.3f\t%4.2f\t%4.2f\n' % (domain.id[i],data[3][i],data[0][i],data[1][i]-0.1391,data[2][i]-z_shift,(data[0][i]-domain.x[i])*5.038,(data[1][i]-domain.y[i])*5.434,(data[2][i]-domain.z[i])*7.3707,domain.u[i],domain.oc[i])
+            f.write(s)
+    f.close()
+    
+def make_publication_table(model_file="D:\\Model_domain3A_publication.dat",par_file="D:\\test.tab",el_substrate=['Fe','O'],el_sorbate=['Pb'],abc=[5.038,5.434,7.3707]):
+    """This script is used to combine the output model file and the parameter table to a new file of table with errors for publication
+        The main idea is to extract the error info from the parameter table and append each to the right positions (atom displacements),
+        so that it can save you time to do the tedious work for editing the table for publication.
+        par_file:
+            Parameter table exported from GenX
+        model_file: 
+            A model files exported using the domain_creator.print_data_for_publication_B2()
+        so far this function cannot handle the model containing over 10 slabs (ambiguity could be caused)
+            "O1_11_0_D1A" (10th layer) could not be distinguished with "O1_11_t_D1A"(1st layer)
+        """
+    f_model=open(model_file,'r')
+    f_publication=open(model_file.replace('.dat','_combined.dat'),'w')
+    #the id of each atom looks like O1_1_0_D1A
+    match_lib={'O1':'O1O2','O2':'O1O2',\
+               'O3':'O3O4','O4':'O3O4',\
+               'O5':'O5O6','O6':'O5O6',\
+               'O7':'O7O8','O8':'O7O8',\
+               'O9':'O9O10','O10':'O9O10',\
+               'O11':'O11O12','O12':'O11O12',\
+               'Fe2':'Fe2Fe3','Fe3':'Fe2Fe3',\
+               'Fe4':'Fe4Fe6','Fe6':'Fe4Fe6',\
+               'Fe8':'Fe8Fe9','Fe9':'Fe8Fe9',\
+               'Fe10':'Fe10Fe12','Fe12':'Fe10Fe12'}
+               
+    parameter_values=np.zeros((0,6))
+    f_par=open(par_file,'r')
+    lines_par=f_par.readlines()
+    for line_par in lines_par:
+        if line_par[0:4] in ["gp_"+x[0] for x in el_substrate]:
+            line_par_items=line_par.split('\t')[:-1]
+            parameter_values=np.append(parameter_values,[line_par_items],axis=0)
+    f_par.close()
+
+    lines_model=f_model.readlines()
+
+    f_publication.write("Element\tX(fra)\tY(fra)\tZ(fra)\tdx(errors)(Angstrom)\tdy(errors)(Angstrom)\tdz(errors)(Angstrom)\tu\tocc\n")
+    for line_model in lines_model:
+        line_model_items=line_model.rstrip().split('\t')
+        line_publication_items=line_model_items[1:]
+        id=[None,line_model_items[0].split("_")[-1]]
+        if line_model_items[1] in el_substrate and el_sorbate[0] not in line_model_items[0]:
+            id[0]=line_model_items[1]+line_model_items[0].split("_")[1]
+            for par in parameter_values:
+                if match_lib[id[0]]==par[0].split("_")[1] and id[-1][0:-1] in par[0] and par[-1]!='None' and par[-1]!='-':
+                    opt=par[0].split(".")[-1]
+                    errors=[float(par[-1].split(",")[0][1:]),float(par[-1].split(",")[1][:-1])]
+                    if opt=="setdx":
+                        if par[0].split("_")[1].split(id[0])[0]=='':#sense of left(the glide plane symmetry makes the error boundaries swab as well)
+                            line_publication_items[4]=line_publication_items[4]+" ("+"%1.E" % (errors[0]*abc[0]) +", " + "%1.E" % (errors[1]*abc[0]) + ")"
+                        else:#sense of right
+                            line_publication_items[4]=line_publication_items[4]+" ("+"%1.E" % (-errors[1]*abc[0]) +", " + "%1.E" % (-errors[0]*abc[0]) + ")"
+                    elif opt=="setdy":
+                        line_publication_items[5]=line_publication_items[5]+" ("+"%1.E" % (errors[0]*abc[1]) +", " + "%1.E" % (errors[1]*abc[1]) + ")"
+                    elif opt=="setdz":
+                        line_publication_items[6]=line_publication_items[6]+" ("+"%1.E" % (errors[0]*abc[2]) +", " + "%1.E" % (errors[1]*abc[2]) + ")"
+                    elif opt=="setu":
+                        line_publication_items[7]=line_publication_items[7]+" ("+"%1.E" % errors[0] +", " + "%1.E" % errors[1] + ")"
+                    elif opt=="setoc":
+                        line_publication_items[8]=line_publication_items[8]+" ("+"%1.E" % errors[0] +", " + "%1.E" % errors[1] + ")"
+        elif line_model_items[1] in el_sorbate:#to be completed
+            pass
+        f_publication.write('\t'.join(line_publication_items)+"\n")
+    f_model.close()
+    f_publication.close()
 
 def print_data_for_publication2(N_sorbate=4,domain='',z_shift=1,half_layer=False,full_layer_long=0,save_file='D://model.xyz'):
     data=domain._extract_values()
@@ -511,6 +723,13 @@ def create_HO_ids2(anchor_els=['Pb','Sb'],O_N=[[1,1],[3,3]],tag='_D1A'):
             [id_list.append(temp_id) for temp_id in temp_ids]
     return id_list
     
+def create_HO_ids3(anchor_els=['Pb','Sb'],O_N=[3,3],tag='_D1A'):
+    id_list=[]
+    for i in range(len(O_N)):
+        for j in range(O_N[i]):
+            id_list.append('HO'+str(j+1)+'_'+anchor_els[i]+str(i+1)+tag)
+    return id_list
+    
 def create_sorbate_ids2(el=['Pb','Sb'],N=[1,1],tag='_D1A'):
     id_list=[]
     for i in range(len(N)):
@@ -531,6 +750,16 @@ def create_sorbate_el_list(el=['Pb','Sb'],N=[[1,2],[1,0]]):
                 el_temp.append(el[j])
         el_container.append(el_temp)
     return el_container
+    
+def create_sorbate_el_list2(el=[['Pb','Sb'],['Pb']],N=[[1,2],[1]]):
+    el_container=[]
+    for i in range(len(N)):
+        el_temp=[]
+        for j in range(len(N[i])):
+            for k in range(N[i][j]):
+                el_temp.append(el[i][j])
+        el_container.append(el_temp)
+    return el_container    
 
 #based on the binding configuration, set up a library showing the coordinated atoms for each atoms
 def create_sorbate_match_lib2(metal='Pb',O_Number=[1],O_list=[['HO1_D1A']],anchors=[['O1_2_0','O1_1_0']],anchor_offsets=[['+y',None]],domain_tag=1):
@@ -1528,6 +1757,89 @@ class domain_creator(domain_creator_water,domain_creator_sorbate,domain_creator_
         sum_valence=0.
         for key in bond_valence_container.keys():
             sum_valence=sum_valence+bond_valence_container[key]
+        bond_valence_container['total_valence']=sum_valence
+        if print_file==True:
+            f=open('/home/tlab/sphalerite/jackey/model2/files_pb/bond_valence_'+center_atom_id+'.txt','w')
+            for i in bond_valence_container.keys():
+                s = '%-5s   %7.5e\n' % (i,bond_valence_container[i])
+                f.write(s)
+            f.close()
+        return bond_valence_container
+        
+    #different from v6: not only consider for the bond valence sum but also consider for the coordination situation compared to the pre-defined coordinated members
+    def cal_bond_valence1_new2B_7(self,domain,center_atom_id,center_atom_el,searching_range_offset=0.2,ideal_bond_len_container={('Fe','O'):1.759,('H','O'):0.677,('Pb','O'):2.04,('Sb','O'):1.973},coordinated_atms=[],wt=100,print_file=False,r0_container={('Fe','O'):1.759,('H','O'):0.677,('Pb','O'):2.04,('Sb','O'):1.973},O_cutoff_limit=2.5,waiver_atoms=[]):
+        #different from version 5: there is a waiver_atom list, when each two inside the list are being considered for bond valence, such bond valence constrain will be ignored
+        bond_valence_container={}
+        basis=np.array([5.038,5.434,7.3707])
+        f2=lambda p1,p2:np.sqrt(np.sum((p1-p2)**2))
+        #f2=lambda p1,p2:spatial.distance.cdist([p1],[p2])
+        index=(center_atom_id,center_atom_el)
+        #print center_atom_id,f1(domain,index)
+        for key in domain.keys():
+            
+            dist=f2(domain[key]*basis,domain[index]*basis)
+            searching_range=None
+            if (index[1],key[1]) in ideal_bond_len_container.keys():
+                searching_range=ideal_bond_len_container[(index[1],key[1])]+searching_range_offset
+            elif (key[1],index[1]) in ideal_bond_len_container.keys():
+                searching_range=ideal_bond_len_container[(key[1],index[1])]+searching_range_offset
+            else:
+                searching_range=2.5
+            #print domain.id[i],center_atom_id,dist
+            if (dist<=searching_range)&(dist!=0.):
+                r0=0
+                if (index[1],key[1]) in r0_container.keys():
+                    r0=r0_container[(index[1],key[1])]
+                elif (key[1],index[1]) in r0_container.keys():
+                    r0=r0_container[(key[1],index[1])]
+                elif ((index[1]=='O')&(key[1]=='O')):
+                    if sum([each in key[0] for each in waiver_atoms])==1 and sum([eachcase in center_atom_id for eachcase in waiver_atoms])==1:
+                        r0=-10
+                    else:
+                        if dist<O_cutoff_limit:
+                            r0=20.#arbitrary r0 here, ensure oxygens are more than 2.65A apart
+                        else:r0=-10
+                elif ((index[1]=='H')&(key[1]=='H')):
+                    if dist<1.5:
+                        r0=0.677
+                        dist=0.679 #arbitrary distance to ensure the bv result is a huge number
+                    else:
+                        r0=0.677
+                        dist=20 #arbitrary distance to ensure the bv result is a tiny tiny number
+                else:
+                    if ((index[1]!='H')&(key[1]!='H')):
+                        r0=-10#allow short sorbate-sorbate distance for consideration of multiple sorbate within one average structure
+                    else:
+                        if dist<2:#cations are not allowed to be closer than 2A to hydrogen atom
+                            r0=0.677
+                            dist=0.679
+                        else:#ignore it if the distance bw cation and Hydrogen is less than 2.5 but higher than 2. A
+                            r0=0.677
+                            dist=20
+                sum_check=0
+                for atm in coordinated_atms:
+                    if atm in key[0]:
+                        sum_check+=1
+                    elif 'HB' in key[0]:
+                        sum_check+=1
+                #print "sum_check",sum_check
+                if sum_check==1:
+                    if r0==0.677:
+                        bond_valence_container[key[0]]=0.24/(dist-r0)
+                    else:
+                        bond_valence_container[key[0]]=np.exp((r0-dist)/0.37)
+                else:
+                    if r0==0.677:
+                        bond_valence_container[key[0]]=0.24/(dist-r0)
+                    else:
+                        bond_valence_container[key[0]]=np.exp((r0-dist)/0.37)*wt
+                #print domain.id[i],f1(domain,i)
+        sum_valence=0.
+        for key in bond_valence_container.keys():
+            sum_valence=sum_valence+bond_valence_container[key]
+        #Trigger penalty for under-coordination situation
+        if len(bond_valence_container.keys())<len(coordinated_atms) and center_atom_el!='O': 
+            sum_valence=sum_valence*wt
         bond_valence_container['total_valence']=sum_valence
         if print_file==True:
             f=open('/home/tlab/sphalerite/jackey/model2/files_pb/bond_valence_'+center_atom_id+'.txt','w')

@@ -6,8 +6,7 @@ from models.utils import UserVars
 import numpy as np
 from operator import mul
 from numpy.linalg import inv
-import hexahedra,hexahedra_distortion,tetrahedra,octahedra,tetrahedra_edge_distortion,trigonal_pyramid_distortion,trigonal_pyramid_distortion_shareface,trigonal_pyramid_distortion2,trigonal_pyramid_distortion3,trigonal_pyramid_distortion4
-import trigonal_pyramid_known_apex
+from geometry_modules import *
 
 """
 functions in classes

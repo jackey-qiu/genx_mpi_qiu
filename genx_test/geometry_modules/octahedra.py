@@ -42,9 +42,11 @@ O11_top,O12_top=[0.153,0.9452,2.097]*basis,[0.347,0.4452,2.097]*basis
 anchor1,anchor2=O1,O2
 
 class share_face():
-    def __init__(self,face=np.array([[0.,0.,2.5],[2.5,0,0.],[0,2.5,0]])):
+    def __init__(self,face=np.array([[0.,0.,2.5],[2.5,0,0.],[0,2.5,0]]),mirror=False):
         #pass in the vector of three known vertices
+        #mirror setting will make the sorbate projecting in an opposite direction referenced to the p0p1p2 plane
         self.face=face
+        self.mirror=mirror
 
     def share_face_init(self,flag='right_triangle',dr=[0,0,0]):
         #octahedra has a high symmetrical configuration,there are only two types of share face.
@@ -74,6 +76,8 @@ class share_face():
                 r=f2(p1,p2)/2.
                 phi=0.
                 theta=np.pi/2+np.arctan(np.sqrt(2))
+                if self.mirror:
+                    theta=np.pi/2-np.arctan(np.sqrt(2))
                 center_point_new=np.array([r*np.cos(phi)*np.sin(theta),r*np.sin(phi)*np.sin(theta),r*np.cos(theta)])
                 center_point_org=np.dot(inv(T),center_point_new)+origin
                 #the two possible points are related to each other via invertion over the origin

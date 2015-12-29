@@ -364,20 +364,27 @@ class Sample:
                 keys_domainB.append('domain'+str(i+1)+'B')
             for i in keys_domainA:
                 f_layered_water=0
+                f_layered_sorbate=0
                 if self.domain[i]['layered_water']!=[]:
                     f_layered_water=self.calc_f_layered_water(h,k,l,*self.domain[i]['layered_water'])
+                if 'layered_sorbate' in self.domain[i].keys():
+                    if self.domain[i]['layered_sorbate']!=[]:
+                        f_layered_sorbate=self.calc_f_layered_sorbate(h,k,l,*self.domain[i]['layered_sorbate'])
                 if coherence[n].keys()[0]:
-                    ftot_A_C=ftot_A_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
+                    ftot_A_C=ftot_A_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate)*self.domain[i]['wt']
                 else:
-                    ftot_A_IC=ftot_A_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
+                    ftot_A_IC=ftot_A_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate)*self.domain[i]['wt']
             for i in keys_domainB:
                 f_layered_water=0
                 if self.domain[i]['layered_water']!=[]:
                     f_layered_water=self.calc_f_layered_water(h,k,l,*self.domain[i]['layered_water'])
+                if 'layered_sorbate' in self.domain[i].keys():
+                    if self.domain[i]['layered_sorbate']!=[]:
+                        f_layered_sorbate=self.calc_f_layered_sorbate(h,k,l,*self.domain[i]['layered_sorbate'])
                 if coherence[n].keys()[0]:
-                    ftot_B_C=ftot_B_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
+                    ftot_B_C=ftot_B_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate)*self.domain[i]['wt']
                 else:
-                    ftot_B_IC=ftot_B_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
+                    ftot_B_IC=ftot_B_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate)*self.domain[i]['wt']
             ftot=ftot+abs(ftot_A_C)+ftot_A_IC+ftot_B_IC+abs(ftot_B_C)
             #ftot=ftot+ftot_A_C+ftot_A_IC+ftot_B_IC+ftot_B_C
         return abs(ftot)*self.inst.inten
@@ -402,7 +409,6 @@ class Sample:
         coherence=self.coherence
         fb = self.calc_fb(h, k, l)
         f_surface=self.calc_fs
-
         
         for n in range(len(coherence)):
             ftot_A_C, ftot_A_IC=0,0
@@ -416,16 +422,20 @@ class Sample:
             for i in keys_domainA:
                 ii=int(i[6:-1])-1#extract the domain index from the domain key, eg for "domain10A" will have a 9 as the domain index
                 f_layered_water=0
-                if self.domain[i]['layered_water']!=[]:
+                f_layered_sorbate=0
+                if self.domain[i]['layered_water']!=[]:#consider layered water?
                     f_layered_water=self.calc_f_layered_water(h,k,l,*self.domain[i]['layered_water'])
+                if 'layered_sorbate' in self.domain[i].keys():#consider layered sorbate?
+                    if self.domain[i]['layered_sorbate']!=[]:
+                        f_layered_sorbate=self.calc_f_layered_sorbate_RAXR(h,k,l,*self.domain[i]['layered_sorbate'])
                 if coherence[n].keys()[0]:
                     if resonant_els[ii]:
-                        ftot_A_C=ftot_A_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+(f1f2[:,0]+1.0J*f1f2[0:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*P_list[ii]))*self.domain[i]['wt']
+                        ftot_A_C=ftot_A_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate+(f1f2[:,0]+1.0J*f1f2[:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*P_list[ii]))*self.domain[i]['wt']
                     else:
                         ftot_A_C=ftot_A_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
                 else:
                     if resonant_els[ii]:
-                        ftot_A_IC=ftot_A_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+(f1f2[:,0]+1.0J*f1f2[0:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*P_list[ii]))*self.domain[i]['wt']
+                        ftot_A_IC=ftot_A_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate+(f1f2[:,0]+1.0J*f1f2[:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*P_list[ii]))*self.domain[i]['wt']
                     else:
                         ftot_A_IC=ftot_A_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
             for i in keys_domainB:
@@ -433,16 +443,20 @@ class Sample:
                 #in light of that, the Fourier component A(amplitude) is same as that for the associated domainA, but the other one (phase) should be 0.5 off
                 ii=int(i[6:-1])-1#extract the domain index from the domain key, eg for "domain10A" will have a 9 as the domain index
                 f_layered_water=0
+                f_layered_sorbate=0
                 if self.domain[i]['layered_water']!=[]:
                     f_layered_water=self.calc_f_layered_water(h,k,l,*self.domain[i]['layered_water'])
+                if 'layered_sorbate' in self.domain[i].keys():
+                    if self.domain[i]['layered_sorbate']!=[]:
+                        f_layered_sorbate=self.calc_f_layered_sorbate_RAXR(h,k,l,*self.domain[i]['layered_sorbate'])
                 if coherence[n].keys()[0]:
                     if resonant_els[ii]:
-                        ftot_B_C=ftot_B_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+(f1f2[:,0]+1.0J*f1f2[0:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*(P_list[ii]-0.5*l[0])))*self.domain[i]['wt']
+                        ftot_B_C=ftot_B_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate+(f1f2[:,0]+1.0J*f1f2[:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*(P_list[ii]-0.5*l[0])))*self.domain[i]['wt']
                     else:
                         ftot_B_C=ftot_B_C+(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
                 else:
                     if resonant_els[ii]:
-                        ftot_B_IC=ftot_B_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+(f1f2[:,0]+1.0J*f1f2[0:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*(P_list[ii]-0.5*l[0])))*self.domain[i]['wt']
+                        ftot_B_IC=ftot_B_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water+f_layered_sorbate+(f1f2[:,0]+1.0J*f1f2[:,1])*A_list[ii]*np.exp(1.0J*np.pi*2*(P_list[ii]-0.5*l[0])))*self.domain[i]['wt']
                     else:
                         ftot_B_IC=ftot_B_IC+abs(fb+f_surface(h, k, l,[self.domain[i]['slab']])+f_layered_water)*self.domain[i]['wt']
 
@@ -651,11 +665,38 @@ class Sample:
         #the u0 and ubar here are in A
         dinv = self.unit_cell.abs_hkl(h, k, l)
         f=self._get_f(np.array(['O']), dinv)[:,0]
-        Auc=self.unit_cell.a*self.unit_cell.b
+        Auc=self.unit_cell.a*self.unit_cell.b*np.sin(self.unit_cell.gamma)
         q=2*np.pi*dinv
         F_layered_water=f*(Auc*d_w*density_w)*np.exp(-0.5*q**2*u0**2)*np.exp(q*first_layer_height*1.0J)\
                         /(1-np.exp(-0.5*q**2*ubar**2)*np.exp(q*d_w*1.0J))
         return F_layered_water
+        
+    def calc_f_layered_sorbate(self,h,k,l,el,u0_s,ubar_s,d_s,first_layer_height_s,density_s,f1f2=None):
+        #contribution of layered sorbate calculated based on a function modified from equation(29) in Reviews in Mineralogy and Geochemistry v. 49 no. 1 p. 149-221
+        #note here the height of first atom layer is not at 0 as in that equation but is specified by the first_layer_height_s. and the corrections were done accordingly
+        #In addition, the occupancy of layered sorbate molecules was correctly calculated here by Auc*d_s*density_s
+        #the u0_s and ubar_s here are in A
+        #note f1f2 is not used in the function, it serves as a purpose for easy pasting arguments in script
+        dinv = self.unit_cell.abs_hkl(h, k, l)
+        f=self._get_f(np.array([el]), dinv)[:,0]
+        Auc=self.unit_cell.a*self.unit_cell.b*np.sin(self.unit_cell.gamma)
+        q=2*np.pi*dinv
+        F_layered_sorbate=f*(Auc*d_s*density_s)*np.exp(-0.5*q**2*u0_s**2)*np.exp(q*first_layer_height_s*1.0J)\
+                        /(1-np.exp(-0.5*q**2*ubar_s**2)*np.exp(q*d_s*1.0J))
+        return F_layered_sorbate
+        
+    def calc_f_layered_sorbate_RAXR(self,h,k,l,el,u0_s,ubar_s,d_s,first_layer_height_s,density_s,f1f2):
+        #contribution of layered sorbate calculated based on a function modified from equation(29) in Reviews in Mineralogy and Geochemistry v. 49 no. 1 p. 149-221
+        #note here the height of first atom layer is not at 0 as in that equation but is specified by the first_layer_height_s. and the corrections were done accordingly
+        #In addition, the occupancy of layered sorbate molecules was correctly calculated here by Auc*d_s*density_s
+        #the u0_s and ubar here are in A
+        dinv = self.unit_cell.abs_hkl(h, k, l)
+        f=self._get_f(np.array([el]), dinv)[:,0]+(f1f2[:,0]+1.0J*f1f2[0:,1])#atomic form factor corrected by the f1f2 correction items
+        Auc=self.unit_cell.a*self.unit_cell.b*np.sin(self.unit_cell.gamma)
+        q=2*np.pi*dinv
+        F_layered_sorbate=f*(Auc*d_s*density_s)*np.exp(-0.5*q**2*u0_s**2)*np.exp(q*first_layer_height_s*1.0J)\
+                        /(1-np.exp(-0.5*q**2*ubar_s**2)*np.exp(q*d_s*1.0J))
+        return F_layered_sorbate
         
     def turbo_calc_f(self, h, k, l):
         '''Calculate the structure factors for the sample with
@@ -683,14 +724,14 @@ class Sample:
             eden=0
             eden_domains=[]
             for j in range(len(P_list)):
-                eden_each_domain=ZR/Auc/(np.pi*2)*np.sum(A_list[j]*np.cos(2*np.pi*P_list[j]-np.array(q_list_sorted)*z_each)*delta_q)
+                eden_each_domain=ZR/Auc/np.pi*np.sum(A_list[j]*np.cos(2*np.pi*P_list[j]-np.array(q_list_sorted)*z_each)*delta_q)
                 eden_domains.append(eden_each_domain)
                 eden+=eden_each_domain
             eden_plot.append(eden)
             eden_domain_plot.append(eden_domains)
         return z_plot,eden_plot,eden_domain_plot
     
-    def plot_electron_density(self,slabs,el_lib={'O':8,'Fe':26,'As':33,'Pb':82,'Sb':51},z_min=0.,z_max=20.,N_layered_water=10,resolution=1000):
+    def plot_electron_density(self,slabs,el_lib={'O':8,'Fe':26,'As':33,'Pb':82,'Sb':51,'P':15,'Cr':24,'Cd':48,'Cu':29,'Zn':30},z_min=0.,z_max=28.,N_layered_water=10,resolution=1000,file_path="D:\\"):
         #print dinv
         e_data=[]
         labels=[]
@@ -715,19 +756,37 @@ class Sample:
                 for i in range(N_layered_water):
                     z_layered_water.append((layered_water[3]+1.)*self.unit_cell.c+i*layered_water[2])#first layer is offseted by 1 accordingly
                     sigma_layered_water.append((layered_water[0]**2+i*layered_water[1]**2)**0.5)
+            #consider the e density of layered sorbate        
+            layered_sorbate,z_layered_sorbate,sigma_layered_sorbate,d_s,sorbate_density=None,[],[],None,None
+            if 'layered_sorbate' in slabs[key].keys():
+                if slabs[key]['layered_sorbate']!=[]:
+                    #the items for the layered sorbate is [el,u0,ubar,d_s(in A),first_layer_height(in fractional),density_s (in # of waters/A^3)]
+                    layered_sorbate=slabs[key]['layered_sorbate']
+                    d_s=layered_sorbate[3]
+                    sorbate_density=layered_sorbate[-2]
+                    for i in range(N_layered_water):#assume the number of sorbate layer equal to that for water layers
+                        z_layered_sorbate.append((layered_sorbate[4]+1.)*self.unit_cell.c+i*layered_sorbate[3])#first layer is offseted by 1 accordingly
+                        sigma_layered_sorbate.append((layered_sorbate[1]**2+i*layered_sorbate[2]**2)**0.5)
             #print u,f,z
             for i in range(resolution):
                 z_each=float(z_max-z_min)/resolution*i+z_min
                 z_plot.append(z_each)
                 #normalized with occupancy and weight factor (manually scaled by a factor 2 to consider the half half of domainA and domainB)
+                #here considering the e density for each atom layer will be distributed within a volume of Auc*1, so the unit here is e/A3
                 eden.append(np.sum(slabs[key]['wt']*2*oc*f/Auc*(2*np.pi*u**2)**-0.5*np.exp(-0.5/u**2*(z_each-z)**2)))
                 if slabs[key]['layered_water']!=[]:
-                    eden[-1]=eden[-1]+np.sum(8*slabs[key]['wt']*2*Auc*d_w*water_density*(2*np.pi*np.array(sigma_layered_water)**2)**-0.5*np.exp(-0.5/np.array(sigma_layered_water)**2*(z_each-np.array(z_layered_water))**2))
+                    #eden[-1]=eden[-1]+np.sum(8*slabs[key]['wt']*2*Auc*d_w*water_density*(2*np.pi*np.array(sigma_layered_water)**2)**-0.5*np.exp(-0.5/np.array(sigma_layered_water)**2*(z_each-np.array(z_layered_water))**2))
+                    eden[-1]=eden[-1]+np.sum(8*slabs[key]['wt']*2*water_density*(2*np.pi*np.array(sigma_layered_water)**2)**-0.5*np.exp(-0.5/np.array(sigma_layered_water)**2*(z_each-np.array(z_layered_water))**2))
+                if 'layered_sorbate' in slabs[key].keys():
+                    if slabs[key]['layered_sorbate']!=[]:
+                        eden[-1]=eden[-1]+np.sum(el_lib[slabs[key]['layered_sorbate'][0]]*slabs[key]['wt']*2*sorbate_density*(2*np.pi*np.array(sigma_layered_sorbate)**2)**-0.5*np.exp(-0.5/np.array(sigma_layered_sorbate)**2*(z_each-np.array(z_layered_sorbate))**2))
+
             labels.append(key)
             e_data.append(np.array([z_plot,eden]))
             e_total=e_total+np.array(eden)
         labels.append('Total electron density')
         e_data.append(np.array([list(e_data[0])[0],e_total]))
+        pickle.dump([e_data,labels],open(file_path+"temp_plot_eden","wb"))
         try:
             pickle.dump([e_data,labels],open("D:\\Google Drive\\useful codes\\plotting\\temp_plot_eden","wb"))
         except:

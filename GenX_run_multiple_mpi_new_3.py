@@ -504,7 +504,7 @@ for pars in par_list:
 	if gen%opt.autosave_interval==0:
 	    
 	    std_val=std(opt.fom_log[:,1][-200:])
-	    if std_val<-1:
+	    if std_val<0.01:
 		if rank==0:
 		    opt.text_output('std='+str(std_val))
 	        break

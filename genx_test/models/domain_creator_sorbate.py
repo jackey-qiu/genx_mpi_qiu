@@ -4,8 +4,7 @@ from models.utils import UserVars
 import numpy as np
 from operator import mul
 from numpy.linalg import inv
-import hexahedra,hexahedra_distortion,tetrahedra,octahedra,tetrahedra_edge_distortion,trigonal_pyramid_distortion,trigonal_pyramid_distortion_B,trigonal_pyramid_distortion_B2,trigonal_pyramid_distortion_shareface,trigonal_pyramid_distortion2,trigonal_pyramid_distortion3,trigonal_pyramid_distortion4
-import trigonal_pyramid_known_apex
+from geometry_modules import *
 
 """
 functions in the class
@@ -452,7 +451,7 @@ class domain_creator_sorbate():
         #_add_sorbate(domain=domain,id_sorbate=attach_atm_id_third[0],el='O',sorbate_v=(p_O3-_translate_offset_symbols(offset[2]))/basis)
         return [pyramid_distortion.apex/basis]
         
-    def adding_share_triple_octahedra(self,domain,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],sorbate_id='Sb_id',sorbate_el='Sb',sorbate_oxygen_ids=['HO1','HO2','HO3'],dr=[0,0,0]):
+    def adding_share_triple_octahedra(self,domain,attach_atm_ids_ref=['id1','id2'],attach_atm_id_third=['id3'],offset=[None,None,None],sorbate_id='Sb_id',sorbate_el='Sb',sorbate_oxygen_ids=['HO1','HO2','HO3'],dr=[0,0,0],mirror=False):
         #here only consider the configuration of regular octahedra
         #and here consider the tridentate complexation configuration 
         #two steps:
@@ -501,7 +500,7 @@ class domain_creator_sorbate():
         p_O2=pt_ct(domain,p_O2_index,offset[1])*basis
         p_O3_old=pt_ct(domain,p_O3_index,offset[2])*basis
         p_O3=_cal_coor_o3(p_O1,p_O2,p_O3_old)
-        octahedra_case=octahedra.share_face(np.array([p_O1,p_O2,p_O3]))
+        octahedra_case=octahedra.share_face(np.array([p_O1,p_O2,p_O3]),mirror)
         octahedra_case.share_face_init(flag='regular_triangle',dr=dr)
         def _add_sorbate(domain=None,id_sorbate=None,el='Sb',sorbate_v=[]):
             sorbate_index=None
@@ -517,10 +516,11 @@ class domain_creator_sorbate():
         _add_sorbate(domain=domain,id_sorbate=sorbate_id,el=sorbate_el,sorbate_v=octahedra_case.center_point/basis)
 
         if sorbate_oxygen_ids!=[]:
-            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[0],el='O',sorbate_v=octahedra_case.p3/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
-            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[1],el='O',sorbate_v=octahedra_case.p4/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
-            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[2],el='O',sorbate_v=octahedra_case.p5/basis+dxdydz(domain,np.where(domain.id==sorbate_id)[0][0]))
-            return [octahedra_case.center_point/basis,octahedra_case.p3/basis,octahedra_case.p4/basis,octahedra_case.p5/basis]
+            dxdydz_mag=dxdydz(domain,np.where(domain.id==sorbate_id)[0][0])
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[0],el='O',sorbate_v=octahedra_case.p3/basis+dxdydz_mag)
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[1],el='O',sorbate_v=octahedra_case.p4/basis+dxdydz_mag)
+            _add_sorbate(domain=domain,id_sorbate=sorbate_oxygen_ids[2],el='O',sorbate_v=octahedra_case.p5/basis+dxdydz_mag)
+            return [octahedra_case.center_point/basis,octahedra_case.p3/basis+dxdydz_mag,octahedra_case.p4/basis+dxdydz_mag,octahedra_case.p5/basis+dxdydz_mag]
         else:
             return [octahedra_case.center_point/basis]
          
@@ -1345,12 +1345,13 @@ class domain_creator_sorbate():
         #r0 in ansgtrom is the distance between cent_point and oxygens in the based
         #r1 in angstrom is the distance bw cent_point and apex
         a,b,c=5.038,5.434,7.3707
+        angle=np.pi
         p1_x,p1_y,p1_z=r0*np.cos(phi)*np.sin(0.95531)/a+cent_point[0],r0*np.sin(phi)*np.sin(0.95531)/b+cent_point[1],r0*np.cos(0.95531)/c+cent_point[2]
-        p2_x,p2_y,p2_z=r0*np.cos(phi+np.pi*1/3)*np.sin(-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*1/3)*np.sin(-0.95531)/b+cent_point[1],r0*np.cos(-0.95531)/c+cent_point[2]
+        p2_x,p2_y,p2_z=r0*np.cos(phi+np.pi*1/3)*np.sin(angle-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*1/3)*np.sin(angle-0.95531)/b+cent_point[1],r0*np.cos(angle-0.95531)/c+cent_point[2]
         p3_x,p3_y,p3_z=r0*np.cos(phi+np.pi*2/3)*np.sin(0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*2/3)*np.sin(0.95531)/b+cent_point[1],r0*np.cos(0.95531)/c+cent_point[2]
-        p4_x,p4_y,p4_z=r0*np.cos(phi+np.pi*3/3)*np.sin(-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*3/3)*np.sin(-0.95531)/b+cent_point[1],r0*np.cos(-0.95531)/c+cent_point[2]
+        p4_x,p4_y,p4_z=r0*np.cos(phi+np.pi*3/3)*np.sin(angle-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*3/3)*np.sin(angle-0.95531)/b+cent_point[1],r0*np.cos(angle-0.95531)/c+cent_point[2]
         p5_x,p5_y,p5_z=r0*np.cos(phi+np.pi*4/3)*np.sin(0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*4/3)*np.sin(0.95531)/b+cent_point[1],r0*np.cos(0.95531)/c+cent_point[2]
-        p6_x,p6_y,p6_z=r0*np.cos(phi+np.pi*5/3)*np.sin(-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*5/3)*np.sin(-0.95531)/b+cent_point[1],r0*np.cos(-0.95531)/c+cent_point[2]
+        p6_x,p6_y,p6_z=r0*np.cos(phi+np.pi*5/3)*np.sin(angle-0.95531)/a+cent_point[0],r0*np.sin(phi+np.pi*5/3)*np.sin(angle-0.95531)/b+cent_point[1],r0*np.cos(angle-0.95531)/c+cent_point[2]
         apex_x,apex_y,apex_z=cent_point[0],cent_point[1],cent_point[2]
         
         def _add_sorbate(domain=None,id_sorbate=None,el='Pb',sorbate_v=[]):
@@ -1363,7 +1364,7 @@ class domain_creator_sorbate():
                 domain.x[sorbate_index]=sorbate_v[0]
                 domain.y[sorbate_index]=sorbate_v[1]
                 domain.z[sorbate_index]=sorbate_v[2]
-        _add_sorbate(domain=domain,id_sorbate=pb_id,el=sorbate_el,sorbate_v=[apex_x,apex_y,apex_z])
+        _add_sorbate(domain=domain,id_sorbate=Sb_id,el=sorbate_el,sorbate_v=[apex_x,apex_y,apex_z])
         if distal_oxygen:
             _add_sorbate(domain=domain,id_sorbate=O_ids[0],el='O',sorbate_v=[p1_x,p1_y,p1_z])
             _add_sorbate(domain=domain,id_sorbate=O_ids[1],el='O',sorbate_v=[p2_x,p2_y,p2_z])
